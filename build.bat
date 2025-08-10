@@ -22,5 +22,6 @@ set msvc_linker_flags=/DEBUG:FASTLINK /INCREMENTAL:NO /OPT:REF
 :: compilation.
 pushd "%output_directory%"
 cls
-if %errorlevel% == 0 (cl %msvc_compiler_flags% "%project_directory%\source\test\main.c" /link %msvc_linker_flags%)
+if %errorlevel% == 0 (cl %msvc_compiler_flags% /LD "%project_directory%\source\library\console.c" /link %msvc_linker_flags%)
+if %errorlevel% == 0 (cl %msvc_compiler_flags% /Fo"console_.obj" "%project_directory%\source\test\console.c" /link %msvc_linker_flags% console.lib)
 popd
