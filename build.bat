@@ -23,5 +23,7 @@ set msvc_linker_flags=/DEBUG:FASTLINK /INCREMENTAL:NO /OPT:REF
 pushd "%output_directory%"
 cls
 if %errorlevel% == 0 (cl %msvc_compiler_flags% /LD "%project_directory%\source\library\console.c" /link %msvc_linker_flags%)
+if %errorlevel% == 0 (cl %msvc_compiler_flags% /LD "%project_directory%\source\library\string.c" /link %msvc_linker_flags%)
 if %errorlevel% == 0 (cl %msvc_compiler_flags% /Fo"console_.obj" "%project_directory%\source\test\console.c" /link %msvc_linker_flags% console.lib)
+if %errorlevel% == 0 (cl %msvc_compiler_flags% /Fo"string_.obj" "%project_directory%\source\test\string.c" /link %msvc_linker_flags% console.lib string.lib)
 popd

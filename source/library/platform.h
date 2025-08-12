@@ -28,5 +28,7 @@ typedef s32 shalf;
 typedef u32 uhalf;
 typedef float f32;
 typedef double f64;
+typedef struct { u32 low; u32 high; } s64_emulated;
+typedef struct { u32 low; u32 high; } u64_emulated;
 
 #endif
