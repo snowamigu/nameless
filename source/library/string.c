@@ -18,58 +18,101 @@ typedef union
 
 typedef enum
 {
-    BIG_INTEGER_ERROR_SUCCESS = 0,
+    BIG_INTEGER_ERROR_SUCCESS,
     BIG_INTEGER_ERROR,
     BIG_INTEGER_ERROR_ENDIANESS_NOT_SUPPORTED,
     BIG_INTEGER_BUFFER_OVERRUN,
-    BIG_INTEGER_ERROR_DIVISION_BY_ZERO
+    BIG_INTEGER_ERROR_DIVISION_BY_ZERO,
+    BIG_INTEGER_ERROR_BUFFER_OVERRUN
 } big_integer_enumeration;
 
 typedef struct
 {
     u32 limb[BIG_INTEGER_MAX_LIMB_COUNT];
-    u32 length;
+    int length;
 } big_integer;
 
-STRING_API uhalf string_length(u32 *length, char *string)
+typedef enum
 {
-    *length = 0;
+    MEMORY_ERROR_SUCCESS,
+    MEMORY_ERROR,
+    MEMORY_ERROR_INDEX_NOT_FOUND,
+} memory_enumeration;
+
+INTERNAL bool string_error_is_set(uhalf *error)
+{
+    return (!error) ? (0) : (*error != STRING_ERROR_SUCCESS);
+}
+
+INTERNAL void string_error_set(uhalf *error, uhalf error_code)
+{
+    if(error)
+    {
+        *error = error_code;
+    }
+}
+
+STRING_API u32 string_length(uhalf *error, char *string)
+{
+    u32 result = 0;
+    
+    if(string_error_is_set(error))
+    {
+        return result;
+    }
 
     while(*string++ != '\0')
     {
-        if(*length == MAX_U32)
+        if(result == MAX_U32)
         {
-            return STRING_ERROR_INSUFFICIENT_BUFFER;
+            string_error_set(error, STRING_ERROR_BUFFER_OVERRUN);
+            return result;
         }
 
-        (*length)++;
+        result++;
     }
 
-    return STRING_ERROR_SUCCESS;
+    string_error_set(error, STRING_ERROR_SUCCESS);
+
+    return result;
 }
 
-STRING_API uhalf string_copy_character(u32 *count, char *buffer, u32 buffer_size, int character)
+STRING_API void string_copy_character(uhalf *error, u32 *count, char *buffer, u32 buffer_size, int character)
 {
+    if(string_error_is_set(error))
+    {
+        return;
+    }
+
     if((buffer_size - *count) < sizeof(char))
     {
-        return STRING_ERROR_INSUFFICIENT_BUFFER;
+        string_error_set(error, STRING_ERROR_INSUFFICIENT_BUFFER);
+        return;
     }
 
     buffer[(*count)++] = (char)character;
     
-    return STRING_ERROR_SUCCESS;
+    string_error_set(error, STRING_ERROR_SUCCESS);
+
+    return;
 }
 
-STRING_API uhalf string_copy_integer(u32 *count, char *buffer, u32 buffer_size, bool sign, u32 value, int representation)
+STRING_API void string_copy_integer(uhalf *error, u32 *count, char *buffer, u32 buffer_size, bool sign, u32 value, int representation)
 {
     int base;
     char *digits;
     char work_buffer[32] = {0};
     int work_buffer_index = 0;
 
+    if(string_error_is_set(error))
+    {
+        return;
+    }
+
     if(!value)
     {
-        return string_copy_character(count, buffer, buffer_size, '0');
+        string_copy_character(error, count, buffer, buffer_size, '0');
+        return;
     }
 
     if(representation == 'o')
@@ -94,7 +137,8 @@ STRING_API uhalf string_copy_integer(u32 *count, char *buffer, u32 buffer_size, 
     }
     else
     {
-        return STRING_ERROR_INVALID_NUMBER_BASE;
+        string_error_set(error, STRING_ERROR_INVALID_NUMBER_BASE);
+        return;
     }
 
     if(sign)
@@ -110,50 +154,46 @@ STRING_API uhalf string_copy_integer(u32 *count, char *buffer, u32 buffer_size, 
 
     if(sign)
     {
-        u32 result = string_copy_character(count, buffer, buffer_size, '-');
-        
-        if(result != STRING_ERROR_SUCCESS)
-        {
-            return result;
-        }
+        string_copy_character(error, count, buffer, buffer_size, '-');
     }
 
     while(--work_buffer_index >= 0)
     {
-        u32 result = string_copy_character(count, buffer, buffer_size, work_buffer[work_buffer_index]);
-
-        if(result != STRING_ERROR_SUCCESS)
-        {
-            return result;
-        }
+        string_copy_character(error, count, buffer, buffer_size, work_buffer[work_buffer_index]);
     }
 
-    return STRING_ERROR_SUCCESS;
+    string_error_set(error, STRING_ERROR_SUCCESS);
+
+    return;
 }
 
-STRING_API uhalf string_copy(u32 *count, char *buffer, u32 buffer_size, char *string, u32 length)
+STRING_API void string_copy(uhalf *error, u32 *count, char *buffer, u32 buffer_size, char *string, u32 length)
 {
-    u32 result = STRING_ERROR;
-    u32 max_length = 0;
 
-    result = string_length(&max_length, string);
+    u32 max_length;
+    u32 i = 0;
 
-    if(result != STRING_ERROR_SUCCESS)
+    if(string_error_is_set(error))
     {
-        return result;
+        return;
     }
 
-    while(*string != '\0')
-    {
-        result = string_copy_character(count, buffer, buffer_size, *string++);
+    max_length = string_length(error, string);
 
-        if(result != STRING_ERROR_SUCCESS)
-        {
-            return result;
-        }
+    if(length > max_length)
+    {
+        string_error_set(error, STRING_ERROR_BUFFER_OVERRUN);
+        return;
     }
 
-    return result;
+    for(i = 0; i < length; i++)
+    {
+        string_copy_character(error, count, buffer, buffer_size, *string++);
+    }
+
+    string_error_set(error, STRING_ERROR_SUCCESS);
+
+    return;
 }
 
 INTERNAL bool memory_is_little_endian()
@@ -169,47 +209,98 @@ INTERNAL bool u64_emulated_is_zero(u64_emulated value)
     return !value.low && !value.high;
 }
 
-INTERNAL uhalf big_integer_is_zero(bool *is_zero, big_integer *integer_big)
+INTERNAL bool big_integer_error_is_set(uhalf *error)
 {
+    return (!error) ? (0) : (*error != BIG_INTEGER_ERROR_SUCCESS);
+}
+
+INTERNAL void big_integer_error_set(uhalf *error, uhalf error_code)
+{
+    if(error)
+    {
+        *error = error_code;
+    }
+}
+
+INTERNAL bool big_integer_is_zero(uhalf *error, big_integer *integer_big)
+{
+    bool result = 0;
+    
+    if(big_integer_error_is_set(error))
+    {
+        return result;
+    }
+
     if(memory_is_little_endian())
     {
-        *is_zero = (integer_big->length == 1) && !integer_big->limb[0];
+        result = (integer_big->length == 1) && !integer_big->limb[0];
     }
     else
     {
-        return BIG_INTEGER_ERROR_ENDIANESS_NOT_SUPPORTED;
+        big_integer_error_set(error, BIG_INTEGER_ERROR_ENDIANESS_NOT_SUPPORTED);
+        return result;
     }
 
-    return BIG_INTEGER_ERROR_SUCCESS;
+    big_integer_error_set(error, BIG_INTEGER_ERROR_SUCCESS);
+
+    return result;
 }
 
-INTERNAL uhalf big_integer_compare(int *comparision, big_integer *lhs, big_integer *rhs)
+INTERNAL void big_integer_normalized(uhalf *error, big_integer *integer_big)
 {
-    u32 i = 0;
+    if(memory_is_little_endian())
+    {
+        while((integer_big->length > 1) && !integer_big->limb[integer_big->length - 1])
+        {
+            integer_big->length--;
+        }
+    }
+    else
+    {
+        big_integer_error_set(error, BIG_INTEGER_ERROR_ENDIANESS_NOT_SUPPORTED);
+        return;
+    }
+
+    big_integer_error_set(error, BIG_INTEGER_ERROR_SUCCESS);
+}
+
+INTERNAL int big_integer_compare(uhalf *error, big_integer *lhs, big_integer *rhs)
+{
+    int i = 0;
+
+    if(big_integer_error_is_set(error))
+    {
+        return 0;
+    }
 
     if(lhs->length != rhs->length)
     {
-        *comparision = (lhs->length > rhs->length) ? (1) : (-1);
-        return BIG_INTEGER_ERROR_SUCCESS;
+        return (lhs->length > rhs->length) ? (1) : (-1);
     }
 
-    for(i = 0; i < lhs->length; i++)
+    if(memory_is_little_endian())
     {
-        if(lhs->limb[i] > rhs->limb[i])
+        for(i = lhs->length - 1; i >= 0; i--)
         {
-            *comparision = 1;
-            return BIG_INTEGER_ERROR_SUCCESS;
-        }
-        else if(lhs->limb[i] < rhs->limb[i])
-        {
-            *comparision = -1;
-            return BIG_INTEGER_ERROR_SUCCESS;
+            if(lhs->limb[i] > rhs->limb[i])
+            {
+                return 1;
+            }
+            else if(lhs->limb[i] < rhs->limb[i])
+            {
+                return -1;
+            }
         }
     }
+    else
+    {
+        big_integer_error_set(error, BIG_INTEGER_ERROR_ENDIANESS_NOT_SUPPORTED);
+        return 0;
+    }
 
-    *comparision = 0;
+    big_integer_error_set(error, BIG_INTEGER_ERROR_SUCCESS);
 
-    return BIG_INTEGER_ERROR_SUCCESS;
+    return 0;
 }
 
 INTERNAL void big_integer_zeroed(big_integer *integer_big)
@@ -224,8 +315,13 @@ INTERNAL void big_integer_zeroed(big_integer *integer_big)
     integer_big->length = 0;
 }
 
-INTERNAL uhalf big_integer_from_u32(big_integer *integer_big, u32 value)
+INTERNAL void big_integer_from_u32(uhalf *error, big_integer *integer_big, u32 value)
 {
+    if(big_integer_error_is_set(error))
+    {
+        return;
+    }
+
     big_integer_zeroed(integer_big);
 
     if(memory_is_little_endian())
@@ -234,14 +330,22 @@ INTERNAL uhalf big_integer_from_u32(big_integer *integer_big, u32 value)
     }
     else
     {
-        return BIG_INTEGER_ERROR_ENDIANESS_NOT_SUPPORTED;
+        big_integer_error_set(error,  BIG_INTEGER_ERROR_ENDIANESS_NOT_SUPPORTED);
+        return;
     }
 
-    return BIG_INTEGER_ERROR_SUCCESS;
+    big_integer_error_set(error, BIG_INTEGER_ERROR_SUCCESS);
+
+    return;
 }
 
-INTERNAL uhalf big_integer_from_u64_emulated(big_integer *integer_big, u64_emulated value)
+INTERNAL void big_integer_from_u64_emulated(uhalf *error, big_integer *integer_big, u64_emulated value)
 {
+    if(big_integer_error_is_set(error))
+    {
+        return;
+    }
+
     big_integer_zeroed(integer_big);
 
     if(memory_is_little_endian())
@@ -251,17 +355,25 @@ INTERNAL uhalf big_integer_from_u64_emulated(big_integer *integer_big, u64_emula
     }
     else
     {
-        return BIG_INTEGER_ERROR_ENDIANESS_NOT_SUPPORTED;
+        big_integer_error_set(error, BIG_INTEGER_ERROR_ENDIANESS_NOT_SUPPORTED);
+        return;
     }
 
-    return BIG_INTEGER_ERROR_SUCCESS;
+    big_integer_error_set(error, BIG_INTEGER_ERROR_SUCCESS);
+
+    return;
 }
 
-INTERNAL uhalf big_integer_copy(big_integer *source, big_integer *destination)
+INTERNAL void big_integer_copy(uhalf *error, big_integer *source, big_integer *destination)
 {
+    if(big_integer_error_is_set(error))
+    {
+        return;
+    }
+
     if(memory_is_little_endian())
     {
-        u32 i = 0;
+        int i = 0;
 
         big_integer_zeroed(destination);
 
@@ -274,14 +386,22 @@ INTERNAL uhalf big_integer_copy(big_integer *source, big_integer *destination)
     }
     else
     {
-        return BIG_INTEGER_ERROR_ENDIANESS_NOT_SUPPORTED;
+        big_integer_error_set(error, BIG_INTEGER_ERROR_ENDIANESS_NOT_SUPPORTED);
+        return;
     }
+
+    big_integer_error_set(error, BIG_INTEGER_ERROR_SUCCESS);
     
-    return BIG_INTEGER_ERROR_SUCCESS;
+    return;
 }
 
-INTERNAL uhalf big_integer_shift_left(big_integer *integer_big, u32 times)
+INTERNAL void big_integer_shift_left(uhalf *error, big_integer *integer_big, u32 times)
 {
+    if(big_integer_error_is_set(error))
+    {
+        return;
+    }
+
     if(memory_is_little_endian())
     {
         int word_size = sizeof(integer_big->limb[0]) * 8;
@@ -301,12 +421,13 @@ INTERNAL uhalf big_integer_shift_left(big_integer *integer_big, u32 times)
         }
 
         integer_big->length += outter_shift;
+        big_integer_normalized(error, integer_big);
 
-        for(i = 0; i < word_size; i++)
+        for(i = 0; i < word_size; i += 32)
         {
-            carry = (integer_big->limb[i] >> (word_size - inner_shift)) & ((1 << (word_size - inner_shift)) - 1);
             u32 limb = (integer_big->limb[i] << inner_shift) & MAX_U32;
-            integer_big->limb[i] = limb | carry;
+            integer_big->limb[i] = limb + carry;
+            carry = (integer_big->limb[i] >> (word_size - inner_shift)) & ((1 << (word_size - inner_shift)) - 1);
         }
 
         if(carry != 0)
@@ -317,65 +438,277 @@ INTERNAL uhalf big_integer_shift_left(big_integer *integer_big, u32 times)
             }
             else
             {
-                return BIG_INTEGER_BUFFER_OVERRUN;
+                big_integer_error_set(error, BIG_INTEGER_BUFFER_OVERRUN);
+                return;
             }
         }
     }
     else
     {
-        return BIG_INTEGER_ERROR_ENDIANESS_NOT_SUPPORTED;
+        big_integer_error_set(error, BIG_INTEGER_ERROR_ENDIANESS_NOT_SUPPORTED);
+        return;
     }
 
-    return BIG_INTEGER_ERROR_SUCCESS;
+    big_integer_error_set(error, BIG_INTEGER_ERROR_SUCCESS);
+    
+    return;
 }
 
-INTERNAL uhalf big_integer_division_remainder(big_integer *numerator, big_integer *denominator, big_integer *quotient, big_integer *remainder)
+INTERNAL void big_integer_shift_right(uhalf *error, big_integer *integer_big, int times)
 {
-    uhalf result = BIG_INTEGER_ERROR;
-    bool is_zero = 0;
+    int word_size = sizeof(integer_big->limb[0]) * 8;
+    int limb_shift = times / word_size;
+    int bit_shift = times % word_size;
+    int i;
 
-    result = big_integer_is_zero(&is_zero, denominator);
-
-    if(result != BIG_INTEGER_ERROR_SUCCESS)
+    for(i = integer_big->length - 1; i > 0; i--)
     {
-        return result;
+        integer_big->limb[i - 1] = integer_big->limb[i];
     }
+}
 
-    if(is_zero)
-    {
-        return BIG_INTEGER_ERROR_DIVISION_BY_ZERO;
-    }
+INTERNAL void big_integer_add(uhalf *error, big_integer *lhs, big_integer *rhs, big_integer *result)
+{
+    int i = 0;
+    u32 carry = 0;
+    int max_length = (lhs->length > rhs->length) ? (lhs->length) : (rhs->length);
+    big_integer r;
 
-    big_integer_zeroed(quotient);
-    big_integer_zeroed(remainder);
+    big_integer_zeroed(&r);
 
     if(memory_is_little_endian())
     {
-        u64_emulated r = {0};
-        u32 i;
-
-        for(i = numerator->length - 1; i >= 0; i--)
+        for(i = 0; i < max_length; i++)
         {
-            r.low = numerator->limb[i];
+            u32 lhs_limb = (!lhs->limb[i]) ? (0) : (lhs->limb[i]);
+            u32 rhs_limb = (!rhs->limb[i]) ? (0) : (rhs->limb[i]);
+            u32 sum = lhs_limb + rhs_limb;
+            u32 inner_carry = 0;
+
+            if(sum < lhs_limb)
+            {
+                inner_carry = 1;
+            }
+
+            sum += carry;
+
+            if(sum < carry)
+            {
+                inner_carry = 1;
+            }
+
+            r.limb[i] = sum;
+            carry = (inner_carry) ? (1) : (0);
         }
+
+        r.length = i;
+
+        if(carry != 0)
+        {
+            if(r.length < BIG_INTEGER_MAX_LIMB_COUNT)
+            {
+                r.limb[r.length++] = carry;
+            }
+            else
+            {
+                big_integer_error_set(error, BIG_INTEGER_ERROR_BUFFER_OVERRUN);
+                return;
+            }
+        }
+    }
+
+    big_integer_copy(error, &r, result);
+    big_integer_error_set(error, BIG_INTEGER_ERROR_SUCCESS);
+    
+    return;
+}
+
+INTERNAL void big_integer_subtract(uhalf *error, big_integer *lhs, big_integer *rhs, big_integer *result)
+{
+    u32 carry = 0;
+    int i = 0;
+    big_integer r;
+
+    big_integer_zeroed(&r);
+
+    if(memory_is_little_endian())
+    {
+        for(i = 0; i < lhs->length; i++)
+        {
+            u32 temporary = ((i < rhs->length) ? (rhs->limb[i]) : (0));
+            r.limb[i] = (lhs->limb[i] - temporary - carry) & MAX_U32;
+            carry = (lhs->limb[i] < (temporary + carry)) ? (1) : (0);
+        }
+
+        r.length = i;
+
+        if(carry != 0)
+        {
+            if(r.length < BIG_INTEGER_MAX_LIMB_COUNT)
+            {
+                r.limb[r.length++] = carry;
+            }
+            else
+            {
+                big_integer_error_set(error, BIG_INTEGER_ERROR_BUFFER_OVERRUN);
+                return;
+            }
+        }
+
+        big_integer_normalized(error, &r);
+        big_integer_copy(error, &r, result);
     }
     else
     {
-        return BIG_INTEGER_ERROR_ENDIANESS_NOT_SUPPORTED;
+        big_integer_error_set(error, BIG_INTEGER_ERROR_ENDIANESS_NOT_SUPPORTED);
+        return;
     }
 
-    return BIG_INTEGER_ERROR_SUCCESS;
+    big_integer_error_set(error, BIG_INTEGER_ERROR_SUCCESS);
+    return;
 }
 
-INTERNAL uhalf ieee754_get_error_message(u32 error, char *buffer, u32 buffer_size)
+INTERNAL void big_integer_multiply_u32(uhalf *error, big_integer *lhs, u32 rhs, big_integer *result)
 {
-    uhalf result = IEEE754_ERROR_SUCCESS;
-    uhalf result2 = IEEE754_ERROR;
+    u32 carry = 0;
+    int i = 0;
+    
+    if(big_integer_error_is_set(error))
+    {
+        return;
+    }
+
+    for(i = 0; i < lhs->length; i++)
+    {
+        u64_emulated product = {0};
+        u32 lhs_low = lhs->limb[i] & MAX_U16;
+        u32 lhs_high = (lhs->limb[i] >> 16) & MAX_U16;
+        u32 rhs_low = rhs & MAX_U16;
+        u32 rhs_high = (rhs >> 16) & MAX_U16;
+        u32 p0 = lhs_low * rhs_low;
+        u32 p1 = lhs_low * rhs_high;
+        u32 p2 = lhs_high * rhs_low;
+        u32 p3 = lhs_high * rhs_high;
+        u32 carry_p0 = p0 >> 16;
+        u32 middle = p1 + p2;
+        u32 carry_middle = (middle < p1) ? (1) : (0);
+        
+        middle += carry_p0;
+        carry_middle += (middle < carry_p0) ? (1) : (0);
+        product.low = (p0 & MAX_U16) | ((middle & MAX_U16) << 16);
+        result->limb[i] = product.low + carry;
+        carry_middle += (product.low < carry) ? (1) : (0);
+        carry = p3 + ((middle >> 16) & MAX_U16) + carry_middle;
+    }
+
+    result->length = i;
+
+    if(carry)
+    {
+        if(result->length < BIG_INTEGER_MAX_LIMB_COUNT)
+        {
+            result->limb[result->length++] = carry;
+        }
+        else
+        {
+            big_integer_error_set(error, BIG_INTEGER_ERROR_BUFFER_OVERRUN);
+            return;
+        }
+    }
+
+    big_integer_error_set(error, BIG_INTEGER_ERROR_SUCCESS);
+    return;
+}
+
+INTERNAL bool memory_error_is_set(uhalf *error)
+{
+    return (!error) ? (0) : (*error != MEMORY_ERROR_SUCCESS);
+}
+
+INTERNAL void memory_error_set(uhalf *error, u32 error_code)
+{
+    if(error)
+    {
+        *error = error_code;
+    }
+}
+
+INTERNAL int memory_count_leading_zeros(uhalf *error, u32 value)
+{
+    bool found = 0;
+    int i;
+
+    if(memory_error_is_set(error))
+    {
+        return 0;
+    }
+
+    for(i = 31; i >= 0; i--)
+    {
+
+        if(!(value & (1 << i)))
+        {
+            memory_error_set(error, MEMORY_ERROR_SUCCESS);
+            return i;
+        }
+    }
+
+    memory_error_set(error, MEMORY_ERROR_INDEX_NOT_FOUND);
+    return 0;
+}
+
+INTERNAL void big_integer_division_remainder(uhalf *error, big_integer *numerator, big_integer *denominator, big_integer *quotient, big_integer *remainder)
+{
+    big_integer n;
+    big_integer d;
+    big_integer q;
+    big_integer r;
+    uhalf memory_error;
+    int n_bit_count;
+    int word_size = sizeof(n.limb[0]) * 8;
+
+    big_integer_from_u32(error, &q, 0);
+    q.length = n.length;
+    n_bit_count = 32 - memory_count_leading_zeros(&memory_error, n.limb[n.length - 1]);
+    n_bit_count += n.length * word_size;
+
+    for(i = n_bit_count - 1; i >= 0; i--)
+    {
+        int bit;
+        big_integer_shift_left(error, &r, 1);
+        bit = 0; /**/
+        r.limb[0] = r.limb[0] | bit;
+        /**/
+    }
+
+    return;
+}
+
+INTERNAL bool ieee754_error_is_set(uhalf *error)
+{
+    return (!error) ? (0) : (*error != IEEE754_ERROR_SUCCESS);
+}
+
+INTERNAL void ieee754_error_set(uhalf *error, uhalf error_code)
+{
+    if(error)
+    {
+        *error = error_code;
+    }
+}
+
+INTERNAL void ieee754_error_get_message(uhalf *error, u32 error_code, char *buffer, u32 buffer_size)
+{
     char *string = "?";
     u32 count = 0;
-    u32 length = 0;
+    uhalf string_error = STRING_ERROR;
 
-    switch(error)
+    if(ieee754_error_is_set(error))
+    {
+        return;
+    }
+
+    switch(error_code)
     {
         case IEEE754_ERROR_SUCCESS:
         {
@@ -395,26 +728,28 @@ INTERNAL uhalf ieee754_get_error_message(u32 error, char *buffer, u32 buffer_siz
         default:
         {
             ASSERT(!"Add to IEEE754_ERROR* in ieee754_enumeration.");
-            result = IEEE754_ERROR;
+            ieee754_error_set(error, IEEE754_ERROR);
         } break;
     }
 
-    result2 = string_length(&length, string);
+    string_copy(&string_error, &count, buffer, buffer_size, string, string_length(&string_error, string));
+    ieee754_error_set(error, BIG_INTEGER_ERROR_SUCCESS);
 
-    if(result == STRING_ERROR_SUCCESS)
-    {
-        result2 = string_copy(&count, buffer, buffer_size, string, length);
-    }
-
-    return (result != STRING_ERROR_SUCCESS) ? (result) : (result2);
+    return;
 }
 
-INTERNAL uhalf ieee754_double_is_infinity(bool *sign, bool *is_infinity, f64 value)
+INTERNAL bool ieee754_double_is_infinity(uhalf *error, bool *sign, f64 value)
 {
+    bool result = 0;
     ieee754_double u = {0};
     u32 low = 0;
     u32 high = 0;
     u32 exponent = 0;
+
+    if(ieee754_error_is_set(error))
+    {
+        return 0;
+    }
     
     u.d = value;
 
@@ -426,22 +761,31 @@ INTERNAL uhalf ieee754_double_is_infinity(bool *sign, bool *is_infinity, f64 val
         high &= 0xFFFFF;
         low = u.i[0];
 
-        *is_infinity = (exponent == 0x7FF) && !low && !high;
+        result = (exponent == 0x7FF) && !low && !high;
     }
     else
     {
-        return IEEE754_ERROR_ENDIANESS_NOT_SUPPORTED;
+        ieee754_error_set(error, IEEE754_ERROR_ENDIANESS_NOT_SUPPORTED);
+        return 0;
     }
 
-    return IEEE754_ERROR_SUCCESS;
+    ieee754_error_set(error, IEEE754_ERROR_SUCCESS);
+
+    return result;
 }
 
-INTERNAL uhalf ieee754_double_is_not_a_number(bool *is_not_a_number, f64 value)
+INTERNAL bool ieee754_double_is_not_a_number(uhalf *error, f64 value)
 {
+    bool result = 0;
     ieee754_double u = {0};
     u32 low = 0;
     u32 high = 0;
     u32 exponent = 0;
+
+    if(ieee754_error_is_set(error))
+    {
+        return 0;
+    }
     
     u.d = value;
 
@@ -452,39 +796,47 @@ INTERNAL uhalf ieee754_double_is_not_a_number(bool *is_not_a_number, f64 value)
         high &= 0xFFFFF;
         low = u.i[0];
 
-        *is_not_a_number = (exponent == 0x7FF) && (low != 0) && (high != 0);
+        result = (exponent == 0x7FF) && (low != 0) && (high != 0);
     }
     else
     {
-        return IEEE754_ERROR_ENDIANESS_NOT_SUPPORTED;
+        ieee754_error_set(error, IEEE754_ERROR_ENDIANESS_NOT_SUPPORTED);
+        return 0;
     }
 
-    return IEEE754_ERROR_SUCCESS;
+    ieee754_error_set(error, IEEE754_ERROR_SUCCESS);
+
+    return result;
 }
 
-INTERNAL uhalf ieee754_decode_double(bool *sign, int *exponent2, f64 value, u64_emulated *mantissa)
+INTERNAL void ieee754_decode_double(uhalf *error, f64 value, bool *sign, int *exponent2, u64_emulated *mantissa)
 {
     ieee754_double u = {0};
     u32 low = 0;
     u32 high = 0;
     int biased_exponent = 0;
 
+    if(ieee754_error_is_set(error))
+    {
+        return;
+    }
+
     u.d = value;
 
     if(memory_is_little_endian())
     {    
-        u.d = value;
         low = u.i[0];
         high = u.i[1];
     }
     else
     {
-        return IEEE754_ERROR_ENDIANESS_NOT_SUPPORTED;
+        ieee754_error_set(error, IEEE754_ERROR_ENDIANESS_NOT_SUPPORTED);
+        return;
     }
 
     *sign = (high >> 31) & 1;
     biased_exponent = (high >> 20) & 0x7FF;
-    mantissa->low = low;
+    mantissa->low = low & MAX_U32;
     mantissa->high = high & 0xFFFFF;
 
     if(!biased_exponent)
@@ -510,15 +862,16 @@ INTERNAL uhalf ieee754_decode_double(bool *sign, int *exponent2, f64 value, u64_
         mantissa->high += 1 << 20;
     }
 
-    return IEEE754_ERROR_SUCCESS;
+    ieee754_error_set(error, IEEE754_ERROR_SUCCESS);
+
+    return;
 }
 
-INTERNAL uhalf string_float64_backwards(u32 *count, char *buffer, u32 buffer_size, f64 value, int precision)
+INTERNAL void string_float64_backwards(uhalf *error, char *buffer, u32 buffer_size, f64 value, int precision, u32 *count)
 {
     uhalf result = STRING_ERROR;
     uhalf ieee754_error = IEEE754_ERROR;
-    char integer_part[64] = {0};
-    char fraction_part[64] = {0};
+    uhalf big_integer_error = BIG_INTEGER_ERROR_SUCCESS;
     bool sign = 0;
     int exponent2 = 0;
     bool is_infinity = 0;
@@ -529,197 +882,173 @@ INTERNAL uhalf string_float64_backwards(u32 *count, char *buffer, u32 buffer_siz
     big_integer denominator;
     bool is_true = 0;
 
-    *buffer = '\0';
-
-    ieee754_error = ieee754_double_is_infinity(&sign, &is_infinity, value);
-
-    if(ieee754_error != IEEE754_ERROR_SUCCESS)
+    if(string_error_is_set(error))
     {
-        ieee754_get_error_message(ieee754_error, buffer, buffer_size);
-        return STRING_ERROR_IEEE754;
+        return;
     }
 
-    if(is_infinity)
+    if(ieee754_double_is_infinity(error, &sign, value))
     {
         char *infinity = "inf";
-        u32 length = 0;
 
         if(sign)
         {
-            result = string_copy_character(count, buffer, buffer_size, '-');
-
-            if(result != STRING_ERROR_SUCCESS)
-            {
-                return result;
-            }
+            string_copy_character(error, count, buffer, buffer_size, '-');
         }
-
-        result = string_length(&length, infinity);
-
-        if(result != STRING_ERROR_SUCCESS)
-        {
-            return result;
-        }
-
-        return string_copy(count, buffer, buffer_size, infinity, length);
+        
+        string_copy(error, count, buffer, buffer_size, infinity, string_length(error, infinity));
+        return;
     }
 
-    ieee754_error = ieee754_double_is_not_a_number(&is_not_a_number, value);
-
-    if(ieee754_error != IEEE754_ERROR_SUCCESS)
-    {
-        ieee754_get_error_message(ieee754_error, buffer, buffer_size);
-        return STRING_ERROR_IEEE754;
-    }
-
-    if(is_not_a_number)
+    if(ieee754_double_is_not_a_number(error, value))
     {
         char *not_a_number = "nan";
-        u32 length = 0;
-        result = string_length(&length, not_a_number);
-
-        if(result != STRING_ERROR_SUCCESS)
-        {
-            return result;
-        }
-
-        return string_copy(count, buffer, buffer_size, not_a_number, length);
+        string_copy(error, count, buffer, buffer_size, not_a_number, string_length(error, not_a_number));
+        return;
     }
 
-    result = ieee754_decode_double(&sign, &exponent2, value, &mantissa);
-
-    if(result != STRING_ERROR_SUCCESS)
-    {
-        return result;
-    }
+    ieee754_decode_double(error, value, &sign, &exponent2, &mantissa);
 
     if(u64_emulated_is_zero(mantissa))
     {
         char *string = "0.";
-        u32 length = 0;
 
-        result = string_length(&length, string);
-
-        if(result != STRING_ERROR_SUCCESS)
+        if(sign)
         {
-            return result;
+            string_copy_character(error, count, buffer, buffer_size, '-');
         }
-
-        result = string_copy(count, buffer, buffer_size, string, length);
-
-        if(result != STRING_ERROR_SUCCESS)
-        {
-            return result;
-        }
+        
+        string_copy(error, count, buffer, buffer_size, string, string_length(error, string));
 
         while(precision-- > 0)
         {
-            result = string_copy_character(count, buffer, buffer_size, '0');
-
-            if(result != STRING_ERROR_SUCCESS)
-            {
-                return result;
-            }
+            string_copy_character(error, count, buffer, buffer_size, '0');
         }
 
-        return STRING_ERROR_SUCCESS;
+        return;
     }
 
-    big_integer_from_u64_emulated(&m, mantissa);
+    big_integer_from_u64_emulated(error, &m, mantissa);
 
     if(exponent2 >= 0)
     {
-        result = big_integer_copy(&m, &numerator);
-
-        if(result != BIG_INTEGER_ERROR_SUCCESS)
-        {
-            return result;
-        }
-
-        result = big_integer_shift_left(&numerator, exponent2);
-
-        if(result != BIG_INTEGER_ERROR_SUCCESS)
-        {
-            return result;
-        }
-
-        result = big_integer_from_u32(&denominator, 1);
-
-        if(result != BIG_INTEGER_ERROR_SUCCESS)
-        {
-            return result;
-        }
+        big_integer_copy(error, &m, &numerator);
+        big_integer_shift_left(error, &numerator, exponent2);
+        big_integer_from_u32(error, &denominator, 1);
     }
     else
     {
         big_integer one;
-        result = big_integer_from_u32(&one, 1);
-
-        if(result != BIG_INTEGER_ERROR_SUCCESS)
-        {
-            return result;
-        }
-
-        result = big_integer_shift_left(&one, -exponent2);
-
-        if(result != BIG_INTEGER_ERROR_SUCCESS)
-        {
-            return result;
-        }
-
-        result = big_integer_from_u64_emulated(&numerator, mantissa);
-
-        if(result != BIG_INTEGER_ERROR_SUCCESS)
-        {
-            return result;
-        }
-
-        result = big_integer_copy(&one, &denominator);
-
-        if(result != BIG_INTEGER_ERROR_SUCCESS)
-        {
-            return result;
-        }
+        big_integer_from_u32(error, &one, 1);
+        big_integer_shift_left(error, &one, -exponent2);
+        big_integer_from_u64_emulated(error, &numerator, mantissa);
+        big_integer_copy(error, &one, &denominator);
     }
 
     is_true = 1;
 
-    while(is_true)
+    if(sign)
+    {
+        string_copy_character(error, count, buffer, buffer_size, '-');
+    }
+
+    if(memory_is_little_endian())
     {
         big_integer quotient;
         big_integer remainder;
+        big_integer low_numerator;
+        big_integer low_denominator;
+        big_integer high_numerator;
+        big_integer high_denominator;
+        big_integer low_digit;
+        big_integer high_digit;
+        big_integer one;
+        big_integer q;
+        int i = 0;
+        int j = 0;
+        int carry;
+        bool dot = 0;
+        int integer_part[64];
+        int integer_part_index = 0;
+        int fraction_part[64];
+        int fraction_part_index = 0;
 
-        big_integer_division_remainder(&numerator, &denominator, &quotient, &remainder);
+        big_integer_division_remainder(&big_integer_error, &numerator, &denominator, &q, &remainder);
+        big_integer_copy(&big_integer_error, &remainder, &numerator);
+        big_integer_multiply_u32(&big_integer_error, &numerator, 10, &numerator);
+
+        for(i = 0; i < (precision + 1); i++)
+        {
+            big_integer_division_remainder(&big_integer_error, &numerator, &denominator, &quotient, &remainder);
+            fraction_part[fraction_part_index++] = quotient.limb[0] % 10;
+            big_integer_copy(&big_integer_error, &remainder, &numerator);
+            big_integer_multiply_u32(&big_integer_error, &numerator, 10, &numerator);
+            big_integer_multiply_u32(&big_integer_error, &numerator, 2, &low_numerator);
+            big_integer_from_u32(&big_integer_error, &one, 1);
+            big_integer_subtract(&big_integer_error, &low_numerator, &one, &low_numerator);
+            big_integer_multiply_u32(&big_integer_error, &denominator, 2, &low_denominator);
+            big_integer_multiply_u32(&big_integer_error, &numerator, 2, &high_numerator);
+            big_integer_add(&big_integer_error, &high_numerator, &one, &high_numerator);
+            big_integer_multiply_u32(&big_integer_error, &denominator, 2, &high_denominator);
+            big_integer_division_remainder(&big_integer_error, &low_numerator, &low_denominator, &quotient, &remainder);
+            big_integer_multiply_u32(&big_integer_error, &remainder, 10, &low_numerator);
+            big_integer_division_remainder(&big_integer_error, &high_numerator, &high_denominator, &quotient, &remainder);
+            big_integer_multiply_u32(&big_integer_error, &remainder, 10, &high_numerator);
+            big_integer_division_remainder(&big_integer_error, &low_numerator, &low_denominator, &low_digit, &remainder);
+            big_integer_division_remainder(&big_integer_error, &high_numerator, &high_denominator, &high_digit, &remainder);
+        }
+
+        if(!q.limb[0])
+        {
+            integer_part[integer_part_index++] = 0;
+        }
+        else
+        {
+            while(q.limb[0] != 0)
+            {
+                int digit = q.limb[0] % 10;
+                integer_part[integer_part_index++] = digit;
+                q.limb[0] /= 10;
+            }
+        }
         
-        is_true = 0;
+        while(--integer_part_index >= 0)
+        {
+            string_copy_character(error, count, buffer, buffer_size, '0' + integer_part[integer_part_index]);
+        }
+
+        string_copy_character(error, count, buffer, buffer_size, '.');
+
+        for(i = 0; i < fraction_part_index; i++)
+        {
+            string_copy_character(error, count, buffer, buffer_size, '0' + fraction_part[i]);
+        }
+    }
+    else
+    {
+        string_error_set(error, STRING_ERROR_ENDIANESS_NOT_SUPPORTED);
+        return;
     }
 
-    /*@TODO: more... */
+    string_error_set(error, STRING_ERROR_SUCCESS);
 
-    return STRING_ERROR_SUCCESS;
+    return;
 }
 
-STRING_API uhalf string_copy_float64(u32 *count, char *buffer, u32 buffer_size, f64 value, int precision)
+STRING_API void string_copy_float64(uhalf *error, u32 *count, char *buffer, u32 buffer_size, f64 value, int precision)
 {
+    if(string_error_is_set(error))
+    {
+        return;
+    }
+
 #if 1
     u32 result = STRING_ERROR;
     char work_buffer[1024];
     u32 work_buffer_length = 0;
 
-    result = string_float64_backwards(&work_buffer_length, work_buffer, sizeof(work_buffer), value, precision);
-
-    if(result != STRING_ERROR_SUCCESS)
-    {
-        return result;
-    }
-    
-    result = string_copy(count, buffer, buffer_size, work_buffer, work_buffer_length);
-
-    if(result != STRING_ERROR_SUCCESS)
-    {
-        return result;
-    }
-    
+    string_float64_backwards(error, work_buffer, sizeof(work_buffer), value, precision, &work_buffer_length);
+    string_copy(error, count, buffer, buffer_size, work_buffer, work_buffer_length);
 #else
     u32 result = STRING_ERROR;
     s32 integer_part = (s32)value;
@@ -763,63 +1092,63 @@ STRING_API uhalf string_copy_float64(u32 *count, char *buffer, u32 buffer_size, 
     }
 #endif
 
-    return result;
+    return;
 }
 
-STRING_API uhalf string_copy_pointer(u32 *count, char *buffer, u32 buffer_size, void *value, int representation)
+STRING_API void string_copy_pointer(uhalf *error, u32 *count, char *buffer, u32 buffer_size, void *value, int representation)
 {
     u8 *byte = (u8 *)&value;
     int i = 0;
+
+    if(string_error_is_set(error))
+    {
+        return;
+    }
 
     if(memory_is_little_endian())
     {
         for(i = sizeof(void *) - 1; i >= 0; i--)
         {
-            u32 result = STRING_ERROR;
-
             if(byte[i] < 16)
             {
-                result = string_copy_character(count, buffer, buffer_size, '0');
-
-                if(result != STRING_ERROR_SUCCESS)
-                {
-                    return result;
-                }
+                string_copy_character(error, count, buffer, buffer_size, '0');
             }
 
-            result = string_copy_integer(count, buffer, buffer_size, 0, byte[i], representation);
-
-            if(result != STRING_ERROR_SUCCESS)
-            {
-                return result;
-            }
+            string_copy_integer(error, count, buffer, buffer_size, 0, byte[i], representation);
         }
     }
     else
     {
-        ASSERT(!"Platform endianess not supported.");
-        return STRING_ERROR_ENDIANESS_NOT_SUPPORTED;
+        string_error_set(error, STRING_ERROR_ENDIANESS_NOT_SUPPORTED);
+        return;
     }
 
-    return STRING_ERROR_SUCCESS;
+    string_error_set(error, STRING_ERROR_SUCCESS);
+
+    return;
 }
 
-STRING_API uhalf string_format(u32 *count, char *buffer, u32 buffer_size, char *format, va_list argument_list)
+STRING_API void string_format(uhalf *error, u32 *count, char *buffer, u32 buffer_size, char *format, va_list argument_list)
 {
-    uhalf result = STRING_ERROR;
+    if(string_error_is_set(error))
+    {
+        return;
+    }
 
     if(buffer_size < sizeof(char))
     {
-        return STRING_ERROR_INSUFFICIENT_BUFFER;
+        string_error_set(error, STRING_ERROR_INSUFFICIENT_BUFFER);
+        return;
     }
 
+    *buffer = '\0';
     *count = 0;
 
     while(*format != '\0')
     {
         if(*format != '%')
         {
-            result = string_copy_character(count, buffer, buffer_size, *format);
+            string_copy_character(error, count, buffer, buffer_size, *format);
             format++;
         }
         else
@@ -828,14 +1157,14 @@ STRING_API uhalf string_format(u32 *count, char *buffer, u32 buffer_size, char *
             {
                 case '%':
                 {
-                    result = string_copy_character(count, buffer, buffer_size, *format);
+                    string_copy_character(error, count, buffer, buffer_size, *format);
                     format++;
                 } break;
 
                 case 'c':
                 {
                     int value = va_arg(argument_list, int);
-                    result = string_copy_character(count, buffer, buffer_size, value);
+                    string_copy_character(error, count, buffer, buffer_size, value);
                     format++;
                 } break;
 
@@ -843,48 +1172,42 @@ STRING_API uhalf string_format(u32 *count, char *buffer, u32 buffer_size, char *
                 case 'i':
                 {
                     s32 value = va_arg(argument_list, s32);
-                    result = string_copy_integer(count, buffer, buffer_size, value < 0, (u32)value, 'd');
+                    string_copy_integer(error, count, buffer, buffer_size, value < 0, (u32)value, 'd');
                     format++;
                 } break;
 
                 case 'f':
                 {
                     f64 value = va_arg(argument_list, f64);
-                    result = string_copy_float64(count, buffer, buffer_size, value, 17);
+                    string_copy_float64(error, count, buffer, buffer_size, value, 17);
                     format++;
                 } break;
 
                 case 'o':
                 {
                     u32 value = va_arg(argument_list, u32);
-                    result = string_copy_integer(count, buffer, buffer_size, 0, value, *format);
+                    string_copy_integer(error, count, buffer, buffer_size, 0, value, *format);
                     format++;
                 } break;
 
                 case 'p':
                 {
                     void *value = va_arg(argument_list, void *);
-                    result = string_copy_pointer(count, buffer, buffer_size, value, 'x');
+                    string_copy_pointer(error, count, buffer, buffer_size, value, 'x');
                     format++;
                 } break;
 
                 case 's':
                 {
-                    u32 length = 0;
                     char *value = va_arg(argument_list, char *);
-                    result = string_length(&length, value);
-
-                    if(result == STRING_ERROR_SUCCESS)
-                    {
-                        result = string_copy(count, buffer, buffer_size, value, length);
-                        format++;
-                    }
+                    string_copy(error, count, buffer, buffer_size, value, string_length(error, value));
+                    format++;
                 } break;
 
                 case 'u':
                 {
                     u32 value = va_arg(argument_list, u32);
-                    result = string_copy_integer(count, buffer, buffer_size, 0, value, 'd');
+                    string_copy_integer(error, count, buffer, buffer_size, 0, value, 'd');
                     format++;
                 } break;
 
@@ -892,18 +1215,18 @@ STRING_API uhalf string_format(u32 *count, char *buffer, u32 buffer_size, char *
                 case 'X':
                 {
                     u32 value = va_arg(argument_list, u32);
-                    result = string_copy_integer(count, buffer, buffer_size, 0, value, *format);
+                    string_copy_integer(error, count, buffer, buffer_size, 0, value, *format);
                     format++;
                 } break;
 
                 default:
                 {
-                    return STRING_ERROR_INVALID_FORMAT_SPECIFIER;
+                    string_error_set(error, STRING_ERROR_INVALID_FORMAT_SPECIFIER);
                 } break;
             }
         }
 
-        if(result != STRING_ERROR_SUCCESS)
+        if(*error != STRING_ERROR_SUCCESS)
         {
             break;
         }
@@ -911,5 +1234,5 @@ STRING_API uhalf string_format(u32 *count, char *buffer, u32 buffer_size, char *
 
     buffer[*count] = '\0';
 
-    return result;
+    return;
 }
