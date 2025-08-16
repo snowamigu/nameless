@@ -30,12 +30,11 @@ int main(int argument_count, char **argument_list)
     print("%% Hello, world! %%\n");
     print("%% Hello, world! %%\n");
 
-    print("%c %c %c\n", 'a', 'b', 'c');
-    print("%c %c %c\n", 'a', 'b', 'c');
+    print("%2c %5c %10c\n", 'a', 'b', 'c');
+    print("%-1c %-5c %-10c\n", 'a', 'b', 'c');
     print("%c %c %c\n", 'a', 'b', 'c');
     
     print("%d %i %d\n", 1234, 0, 1234);
-    print("%d\n", 1234);
     print("%d %i %d\n", 0, -1, 1234);
     print("%d %i %d\n", 0, -1, 1234);
 

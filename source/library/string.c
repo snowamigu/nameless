@@ -110,6 +110,34 @@ INTERNAL uhalf string_count_digits_u32(int *digits, u32 value, int base)
     return STRING_ERROR_SUCCESS;
 }
 
+/* Advances width characters if width > 0. */
+INTERNAL uhalf string_format_specifiers_width(u32 *count, char *buffer, u32 buffer_size, char **format, int *width, bool left_align, int character_count)
+{
+    uhalf error = STRING_ERROR_SUCCESS;
+    int w = *width;
+
+    if(*width < 1)
+    {
+        return error;
+    }
+
+    w = *width - character_count;
+
+    while(w-- > 0)
+    {
+        error = string_copy_character(count, buffer, buffer_size, ' ');
+
+        if(error != STRING_ERROR_SUCCESS)
+        {
+            return error;
+        }
+    }
+
+    *width = w;
+
+    return error;
+}
+
 /* Checks if character is a letter. */
 STRING_API bool string_is_letter(int character)
 {
@@ -373,16 +401,37 @@ STRING_API uhalf string_format(u32 *count, char *buffer, u32 buffer_size, char *
                 /* @TODO: %e, %E, %g, %G. */
                 case '%':
                 {
-                    /* @TODO: width, '-'. */
                     error = string_copy_character(count, buffer, buffer_size, *format);
                     format++;
                 } break;
 
                 case 'c':
                 {
-                    /* @TODO: width, '-'. */
+                    /* '-', width. */
                     int value = va_arg(argument_list, int);
+
+                    if(!left_align)
+                    {
+                        error = string_format_specifiers_width(count, buffer, buffer_size, &format, &width, 0, 1);
+
+                        if(error != STRING_ERROR_SUCCESS)
+                        {
+                            break;
+                        }
+                    }
+
                     error = string_copy_character(count, buffer, buffer_size, value);
+
+                    if(error != STRING_ERROR_SUCCESS)
+                    {
+                        break;
+                    }
+                    
+                    if(left_align)
+                    {
+                        error = string_format_specifiers_width(count, buffer, buffer_size, &format, &width, left_align, 1);
+                    }
+
                     format++;
                 } break;
 
@@ -464,6 +513,8 @@ STRING_API uhalf string_format(u32 *count, char *buffer, u32 buffer_size, char *
             break;
         }
     }
+
+    buffer[*count] = '\0';
 
     return error;
 }

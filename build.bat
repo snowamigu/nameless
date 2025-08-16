@@ -27,9 +27,6 @@ if %errorlevel% == 0 (cl %msvc_compiler_flags% /LD "%source_directory%\library\s
 if %errorlevel% == 0 (cl %msvc_compiler_flags% /Fo"string_.obj" "%source_directory%\test\string.c" /link %msvc_linker_flags% console.lib string.lib)
 popd
 
-if %errorlevel% neq 0 (exit /b 1)
-
-cls
 set /a lines=0
 pushd "%source_directory%"
 for /R %%f in (*.h *.c) do (
