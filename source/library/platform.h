@@ -33,6 +33,7 @@ typedef unsigned int u16;
 typedef long s32;
 typedef unsigned long u32;
 typedef u32 bool;
+typedef u32 uhalf; /* at least 32 bits */
 typedef float f32;
 typedef double f64;
 

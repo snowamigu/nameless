@@ -18,9 +18,9 @@
 #endif
 
 /* Converts platform error code to console error code. */
-INTERNAL u32 console_error_get(u32 error_code)
+INTERNAL uhalf console_error_get(u32 error_code)
 {
-    u32 error;
+    uhalf error;
 
 #ifdef WINDOWS
     switch(error_code)
@@ -44,7 +44,7 @@ INTERNAL u32 console_error_get(u32 error_code)
 }
 
 /* Gives the string length. */
-INTERNAL u32 console_string_length(u32 *length, char *string)
+INTERNAL uhalf console_string_length(u32 *length, char *string)
 {
     *length = 0;
 
@@ -62,9 +62,9 @@ INTERNAL u32 console_string_length(u32 *length, char *string)
 }
 
 /* Copies console error message to buffer given a console code. */
-CONSOLE_API u32 console_error_get_message(u32 error_code, char *buffer, u32 buffer_size)
+CONSOLE_API uhalf console_error_get_message(u32 error_code, char *buffer, u32 buffer_size)
 {
-    u32 error;
+    uhalf error;
     char *message = "?";
     u32 message_length;
 
@@ -141,7 +141,7 @@ CONSOLE_API u32 console_error_get_message(u32 error_code, char *buffer, u32 buff
 }
 
 /* Writes to the console handle device. */
-CONSOLE_API u32 console_write(u32 console_handle, char *buffer, u32 buffer_length)
+CONSOLE_API uhalf console_write(u32 console_handle, char *buffer, u32 buffer_length)
 {
 #ifdef WINDOWS
     void *output_handle;

@@ -4,7 +4,7 @@
 
 int main(int argument_count, char **argument_list)
 {
-    u32 console_error;
+    uhalf console_error;
     char buffer[512];
 
     ASSERT((console_error = console_write(CONSOLE_HANDLE_OUTPUT, "Hello\n", 6)) == CONSOLE_ERROR_SUCCESS);

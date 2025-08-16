@@ -22,6 +22,9 @@ pushd "%output_directory%"
 cls
 if %errorlevel% == 0 (cl %msvc_compiler_flags% /LD "%source_directory%\library\console.c" /link %msvc_linker_flags%)
 if %errorlevel% == 0 (cl %msvc_compiler_flags% /Fo"console_.obj" "%source_directory%\test\console.c" /link %msvc_linker_flags% console.lib)
+
+if %errorlevel% == 0 (cl %msvc_compiler_flags% /LD "%source_directory%\library\string.c" /link %msvc_linker_flags%)
+if %errorlevel% == 0 (cl %msvc_compiler_flags% /Fo"string_.obj" "%source_directory%\test\string.c" /link %msvc_linker_flags% console.lib string.lib)
 popd
 
 if %errorlevel% neq 0 (exit /b 1)

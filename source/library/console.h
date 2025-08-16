@@ -26,7 +26,7 @@ typedef enum
     CONSOLE_HANDLE_OUTPUT
 } console_enumeration;
 
-CONSOLE_API u32 console_error_get_message(u32 error_code, char *buffer, u32 buffer_size);
-CONSOLE_API u32 console_write(u32 console_handle, char *buffer, u32 buffer_length);
+CONSOLE_API uhalf console_error_get_message(u32 error_code, char *buffer, u32 buffer_size);
+CONSOLE_API uhalf console_write(u32 console_handle, char *buffer, u32 buffer_length);
 
 #endif
