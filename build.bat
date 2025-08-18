@@ -20,10 +20,20 @@ mkdir "%output_directory%"
 
 pushd "%output_directory%"
 cls
+
+if %errorlevel% == 0 (cl %msvc_compiler_flags% /LD "%source_directory%\library\memory.c" /link %msvc_linker_flags%)
+::if %errorlevel% == 0 (cl %msvc_compiler_flags% /Fo"memory_.obj" "%source_directory%\test\memory.c" /link %msvc_linker_flags%)
+
+if %errorlevel% == 0 (cl %msvc_compiler_flags% /LD "%source_directory%\library\ieee754.c" /link %msvc_linker_flags% memory.lib)
+::if %errorlevel% == 0 (cl %msvc_compiler_flags% /Fo"ieee754_.obj" "%source_directory%\test\ieee754.c" /link %msvc_linker_flags%)
+
+if %errorlevel% == 0 (cl %msvc_compiler_flags% /LD "%source_directory%\library\big_integer.c" /link %msvc_linker_flags% memory.lib ieee754.lib)
+::if %errorlevel% == 0 (cl %msvc_compiler_flags% /Fo"big_integer_.obj" "%source_directory%\test\big_integer.c" /link %msvc_linker_flags%)
+
 if %errorlevel% == 0 (cl %msvc_compiler_flags% /LD "%source_directory%\library\console.c" /link %msvc_linker_flags%)
 if %errorlevel% == 0 (cl %msvc_compiler_flags% /Fo"console_.obj" "%source_directory%\test\console.c" /link %msvc_linker_flags% console.lib)
 
-if %errorlevel% == 0 (cl %msvc_compiler_flags% /LD "%source_directory%\library\string.c" /link %msvc_linker_flags%)
+if %errorlevel% == 0 (cl %msvc_compiler_flags% /LD "%source_directory%\library\string.c" /link %msvc_linker_flags% memory.lib ieee754.lib big_integer.lib)
 if %errorlevel% == 0 (cl %msvc_compiler_flags% /Fo"string_.obj" "%source_directory%\test\string.c" /link %msvc_linker_flags% console.lib string.lib)
 popd
 

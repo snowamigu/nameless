@@ -36,5 +36,9 @@ typedef u32 bool;
 typedef u32 uhalf; /* at least 32 bits */
 typedef float f32;
 typedef double f64;
+typedef struct { u32 low; u32 high; } s64_emulated;
+typedef struct { u32 low; u32 high; } u64_emulated;
+typedef struct { u64_emulated low; u64_emulated high; } s128_emulated;
+typedef struct { u64_emulated low; u64_emulated high; } u128_emulated;
 
 #endif

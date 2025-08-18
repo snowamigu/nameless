@@ -1,13 +1,48 @@
 #define STRING_EXPORT
 #include "string.h"
+#include "memory.h"
+#include "ieee754.h"
+#include "big_integer.h"
 
-/* Checks for little endian. */
-INTERNAL bool string_is_little_endian()
+INTERNAL uhalf string_error_from_big_integer_error(uhalf big_integer_error)
 {
-    unsigned int x = 1;
-    unsigned char *p = (unsigned char *)&x;
+    uhalf error;
 
-    return *p == 1;
+    switch(big_integer_error)
+    {
+        case BIG_INTEGER_ERROR_SUCCESS:
+        {
+            error = STRING_ERROR_SUCCESS;
+        } break;
+
+        case BIG_INTEGER_ERROR:
+        {
+            error = STRING_ERROR;
+        } break;
+
+        case BIG_INTEGER_ERROR_BUFFER_OVERRUN:
+        {
+            error = STRING_ERROR_BUFFER_OVERRUN;
+        } break;
+
+        case BIG_INTEGER_ERROR_ENDIANESS_NOT_SUPPORTED:
+        {
+            error = STRING_ERROR_ENDIANESS_NOT_SUPPORTED;
+        } break;
+
+        case BIG_INTEGER_ERROR_INVALID_PARAMETER:
+        {
+            error = STRING_ERROR_INVALID_PARAMETER;
+        } break;
+
+        default:
+        {
+            ASSERT(!"");
+            error = BIG_INTEGER_ERROR;
+        } break;
+    }
+
+    return error;
 }
 
 /* Returns format specifier flags, etc. */
@@ -259,7 +294,7 @@ STRING_API uhalf string_copy_integer(u32 *count, char *buffer, u32 buffer_size, 
 /* Copies a pointer to the buffer. */
 STRING_API uhalf string_copy_pointer(u32 *count, char *buffer, u32 buffer_size, void *value, int representation)
 {
-    if(string_is_little_endian())
+    if(memory_is_little_endian())
     {
         uhalf error;
         u8 *byte = (u8 *)&value;
@@ -296,6 +331,155 @@ STRING_API uhalf string_copy_pointer(u32 *count, char *buffer, u32 buffer_size, 
 /* Copies double into buffer. */
 STRING_API uhalf string_copy_double(u32 *count, char *buffer, u32 buffer_size, f64 value, int precision)
 {
+#if 1
+    uhalf error;
+    int exponent_unbiased;
+    int exponent2;
+    ieee754_double ieee754;
+    big_integer numerator;
+    big_integer denominator;
+    int integer_part[32];
+    int fraction_part[32];
+
+    error = ieee754_from_double(value, &ieee754);
+
+    if(error != STRING_ERROR_SUCCESS)
+    {
+        return error;
+    }
+
+    /* Special cases. */
+
+    if(ieee754.is_zero)
+    {
+        char *string;
+        u32 length;
+
+        string = "0.";
+        
+        if(ieee754.sign)
+        {
+            error = string_copy_character(count, buffer, buffer_size, '-');
+
+            if(error != STRING_ERROR_SUCCESS)
+            {
+                return error;
+            }
+        }
+
+        error = string_length(&length, string);
+
+        if(error != STRING_ERROR_SUCCESS)
+        {
+            return error;
+        }
+
+        error = string_copy(count, buffer, buffer_size, string, length);
+
+        if(error != STRING_ERROR_SUCCESS)
+        {
+            return error;
+        }
+
+        while(precision-- > 0)
+        {
+            error = string_copy_character(count, buffer, buffer_size, '0');
+
+            if(error != STRING_ERROR_SUCCESS)
+            {
+                break;
+            }
+        }
+
+        return error;
+    }
+    else if(ieee754.is_infinity)
+    {
+        char *string;
+        u32 length;
+
+        string = "inf";
+        
+        if(ieee754.sign)
+        {
+            error = string_copy_character(count, buffer, buffer_size, '-');
+
+            if(error != STRING_ERROR_SUCCESS)
+            {
+                return error;
+            }
+        }
+
+        error = string_length(&length, string);
+
+        if(error != STRING_ERROR_SUCCESS)
+        {
+            return error;
+        }
+
+        return string_copy(count, buffer, buffer_size, string, length);
+    }
+    else if(ieee754.is_quiet_not_a_number || ieee754.is_signaling_not_a_number)
+    {
+        char *string;
+        u32 length;
+
+        string = "NaN";
+
+        if(ieee754.sign)
+        {
+            error = string_copy_character(count, buffer, buffer_size, '-');
+
+            if(error != STRING_ERROR_SUCCESS)
+            {
+                return error;
+            }
+        }
+        
+        if(ieee754.is_quiet_not_a_number)
+        {
+            error = string_copy_character(count, buffer, buffer_size, 'q');
+
+            if(error != STRING_ERROR_SUCCESS)
+            {
+                return error;
+            }
+        }
+        else if(ieee754.is_signaling_not_a_number)
+        {
+            error = string_copy_character(count, buffer, buffer_size, 's');
+
+            if(error != STRING_ERROR_SUCCESS)
+            {
+                return error;
+            }
+        }
+
+        error = string_length(&length, string);
+
+        if(error != STRING_ERROR_SUCCESS)
+        {
+            return error;
+        }
+
+        return string_copy(count, buffer, buffer_size, string, length);
+    }
+
+    error = big_integer_from_double(value, &numerator, &denominator);
+
+    if(error != BIG_INTEGER_ERROR_SUCCESS)
+    {
+        return string_error_from_big_integer_error(error);
+    }
+
+    error = big_integer_to_integer_fraction_parts(&numerator, integer_part, ARRAY_COUNT(integer_part), &denominator, fraction_part, ARRAY_COUNT(fraction_part));
+
+    if(error != BIG_INTEGER_ERROR_SUCCESS)
+    {
+        return string_error_from_big_integer_error(error);
+    }
+
+#else
     uhalf error;
     s32 integer_part = (s32)value;
     int i;
@@ -335,6 +519,7 @@ STRING_API uhalf string_copy_double(u32 *count, char *buffer, u32 buffer_size, f
 
         value -= integer_part;
     }
+#endif
 
     return STRING_ERROR_SUCCESS;
 }
