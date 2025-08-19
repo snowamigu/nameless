@@ -4,6 +4,7 @@
 #define INTERNAL static
 #define GLOBAL static
 #define LOCAL static
+#define MAX_U16 0xFFFF
 #define MAX_U32 0xFFFFFFFF
 #define ARRAY_COUNT(array) (sizeof(array) / sizeof((array)[0]))
 

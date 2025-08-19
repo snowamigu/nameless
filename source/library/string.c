@@ -343,11 +343,6 @@ STRING_API uhalf string_copy_double(u32 *count, char *buffer, u32 buffer_size, f
 
     error = ieee754_from_double(value, &ieee754);
 
-    if(error != STRING_ERROR_SUCCESS)
-    {
-        return error;
-    }
-
     /* Special cases. */
 
     if(ieee754.is_zero)
@@ -360,35 +355,15 @@ STRING_API uhalf string_copy_double(u32 *count, char *buffer, u32 buffer_size, f
         if(ieee754.sign)
         {
             error = string_copy_character(count, buffer, buffer_size, '-');
-
-            if(error != STRING_ERROR_SUCCESS)
-            {
-                return error;
-            }
         }
 
         error = string_length(&length, string);
 
-        if(error != STRING_ERROR_SUCCESS)
-        {
-            return error;
-        }
-
         error = string_copy(count, buffer, buffer_size, string, length);
-
-        if(error != STRING_ERROR_SUCCESS)
-        {
-            return error;
-        }
 
         while(precision-- > 0)
         {
             error = string_copy_character(count, buffer, buffer_size, '0');
-
-            if(error != STRING_ERROR_SUCCESS)
-            {
-                break;
-            }
         }
 
         return error;
@@ -403,19 +378,9 @@ STRING_API uhalf string_copy_double(u32 *count, char *buffer, u32 buffer_size, f
         if(ieee754.sign)
         {
             error = string_copy_character(count, buffer, buffer_size, '-');
-
-            if(error != STRING_ERROR_SUCCESS)
-            {
-                return error;
-            }
         }
 
         error = string_length(&length, string);
-
-        if(error != STRING_ERROR_SUCCESS)
-        {
-            return error;
-        }
 
         return string_copy(count, buffer, buffer_size, string, length);
     }
@@ -429,55 +394,25 @@ STRING_API uhalf string_copy_double(u32 *count, char *buffer, u32 buffer_size, f
         if(ieee754.sign)
         {
             error = string_copy_character(count, buffer, buffer_size, '-');
-
-            if(error != STRING_ERROR_SUCCESS)
-            {
-                return error;
-            }
         }
         
         if(ieee754.is_quiet_not_a_number)
         {
             error = string_copy_character(count, buffer, buffer_size, 'q');
-
-            if(error != STRING_ERROR_SUCCESS)
-            {
-                return error;
-            }
         }
         else if(ieee754.is_signaling_not_a_number)
         {
             error = string_copy_character(count, buffer, buffer_size, 's');
-
-            if(error != STRING_ERROR_SUCCESS)
-            {
-                return error;
-            }
         }
 
         error = string_length(&length, string);
 
-        if(error != STRING_ERROR_SUCCESS)
-        {
-            return error;
-        }
-
         return string_copy(count, buffer, buffer_size, string, length);
     }
 
-    error = big_integer_from_double(value, &numerator, &denominator);
+    error = big_integer_from_ieee754(0, 0, 0, 0, 0, 0);
 
-    if(error != BIG_INTEGER_ERROR_SUCCESS)
-    {
-        return string_error_from_big_integer_error(error);
-    }
-
-    error = big_integer_to_integer_fraction_parts(&numerator, integer_part, ARRAY_COUNT(integer_part), &denominator, fraction_part, ARRAY_COUNT(fraction_part));
-
-    if(error != BIG_INTEGER_ERROR_SUCCESS)
-    {
-        return string_error_from_big_integer_error(error);
-    }
+    
 
 #else
     uhalf error;
