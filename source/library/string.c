@@ -4,49 +4,8 @@
 #include "ieee754.h"
 #include "big_integer.h"
 
-INTERNAL uhalf string_error_from_big_integer_error(uhalf big_integer_error)
-{
-    uhalf error;
-
-    switch(big_integer_error)
-    {
-        case BIG_INTEGER_ERROR_SUCCESS:
-        {
-            error = STRING_ERROR_SUCCESS;
-        } break;
-
-        case BIG_INTEGER_ERROR:
-        {
-            error = STRING_ERROR;
-        } break;
-
-        case BIG_INTEGER_ERROR_BUFFER_OVERRUN:
-        {
-            error = STRING_ERROR_BUFFER_OVERRUN;
-        } break;
-
-        case BIG_INTEGER_ERROR_ENDIANESS_NOT_SUPPORTED:
-        {
-            error = STRING_ERROR_ENDIANESS_NOT_SUPPORTED;
-        } break;
-
-        case BIG_INTEGER_ERROR_INVALID_PARAMETER:
-        {
-            error = STRING_ERROR_INVALID_PARAMETER;
-        } break;
-
-        default:
-        {
-            ASSERT(!"");
-            error = BIG_INTEGER_ERROR;
-        } break;
-    }
-
-    return error;
-}
-
 /* Returns format specifier flags, etc. */
-INTERNAL uhalf string_format_specifiers(char **format, bool *left_align, bool *show_sign, bool *space_if_positive, bool *zero_pad, bool *alternate_form, int *width, bool *dot_found, int *precision)
+INTERNAL void string_format_specifiers(char **format, bool *left_align, bool *show_sign, bool *space_if_positive, bool *zero_pad, bool *alternate_form, int *width, bool *dot_found, int *precision)
 {
     int specifier_length;
 
@@ -117,24 +76,22 @@ INTERNAL uhalf string_format_specifiers(char **format, bool *left_align, bool *s
         (*format)++;
         specifier_length++;
     }
-
-    return STRING_ERROR_SUCCESS;
 }
 
 /* Counts the digits given a numeber and a base. */
-INTERNAL uhalf string_count_digits_u32(int *digits, u32 value, int base)
+INTERNAL void string_count_digits_u32(int *digits, u32 value, int base)
 {
     *digits = 0;
 
     if(!(base > 0))
     {
-        return STRING_ERROR_INVALID_NUMBER_BASE;
+        return;
     }
 
     if(!value)
     {
         *digits = 1;
-        return STRING_ERROR_SUCCESS;
+        return;
     }
 
     for(; value; value /= base)
@@ -142,35 +99,27 @@ INTERNAL uhalf string_count_digits_u32(int *digits, u32 value, int base)
         (*digits)++;
     }
 
-    return STRING_ERROR_SUCCESS;
+    return;
 }
 
 /* Advances width characters if width > 0. */
-INTERNAL uhalf string_format_specifiers_width(u32 *count, char *buffer, u32 buffer_size, char **format, int *width, bool left_align, int character_count)
+INTERNAL void string_format_specifiers_width(u32 *count, char *buffer, u32 buffer_size, char **format, int *width, bool left_align, int character_count)
 {
-    uhalf error = STRING_ERROR_SUCCESS;
     int w = *width;
 
     if(*width < 1)
     {
-        return error;
+        return;
     }
 
     w = *width - character_count;
 
     while(w-- > 0)
     {
-        error = string_copy_character(count, buffer, buffer_size, ' ');
-
-        if(error != STRING_ERROR_SUCCESS)
-        {
-            return error;
-        }
+        string_copy_character(count, buffer, buffer_size, ' ');
     }
 
     *width = w;
-
-    return error;
 }
 
 /* Checks if character is a letter. */
@@ -186,7 +135,7 @@ STRING_API bool string_is_digit(int character)
 }
 
 /* Gives the string length. */
-STRING_API uhalf string_length(u32 *length, char *string)
+STRING_API void string_length(u32 *length, char *string)
 {
     *length = 0;
 
@@ -194,32 +143,27 @@ STRING_API uhalf string_length(u32 *length, char *string)
     {
         if(*length == MAX_U32)
         {
-            return STRING_ERROR_BUFFER_INSUFFICIENT;
+            return;
         }
 
         (*length)++;
     }
-
-    return STRING_ERROR_SUCCESS;
 }
 
 /* Copies a character into buffer. */
-STRING_API uhalf string_copy_character(u32 *count, char *buffer, u32 buffer_size, int character)
+STRING_API void string_copy_character(u32 *count, char *buffer, u32 buffer_size, int character)
 {
     if(buffer_size < sizeof(char))
     {
-        return STRING_ERROR_BUFFER_INSUFFICIENT;
+        return;
     }
 
     buffer[(*count)++] = (char)character;
-
-    return STRING_ERROR_SUCCESS;
 }
 
 /* Copy a integer in a base into the buffer. */
-STRING_API uhalf string_copy_integer(u32 *count, char *buffer, u32 buffer_size, bool sign, u32 value, int representation)
+STRING_API void string_copy_integer(u32 *count, char *buffer, u32 buffer_size, bool sign, u32 value, int representation)
 {
-    uhalf error;
     int base;
     char *digits;
     char work_buffer[32] = {0};
@@ -227,7 +171,8 @@ STRING_API uhalf string_copy_integer(u32 *count, char *buffer, u32 buffer_size, 
 
     if(!value)
     {
-        return string_copy_character(count, buffer, buffer_size, '0');
+        string_copy_character(count, buffer, buffer_size, '0');
+        return;
     }
 
     if(representation == 'o')
@@ -252,7 +197,7 @@ STRING_API uhalf string_copy_integer(u32 *count, char *buffer, u32 buffer_size, 
     }
     else
     {
-        return STRING_ERROR_INVALID_NUMBER_BASE;
+        return;
     }
 
     if(sign)
@@ -270,33 +215,20 @@ STRING_API uhalf string_copy_integer(u32 *count, char *buffer, u32 buffer_size, 
 
     if(sign)
     {
-        error = string_copy_character(count, buffer, buffer_size, '-');
-
-        if(error != STRING_ERROR_SUCCESS)
-        {
-            return error;
-        }
+        string_copy_character(count, buffer, buffer_size, '-');
     }
 
     while(--i >= 0)
     {
-        error = string_copy_character(count, buffer, buffer_size, work_buffer[i]);
-
-        if(error != STRING_ERROR_SUCCESS)
-        {
-            return error;
-        }
+        string_copy_character(count, buffer, buffer_size, work_buffer[i]);
     }
-
-    return STRING_ERROR_SUCCESS;
 }
 
 /* Copies a pointer to the buffer. */
-STRING_API uhalf string_copy_pointer(u32 *count, char *buffer, u32 buffer_size, void *value, int representation)
+STRING_API void string_copy_pointer(u32 *count, char *buffer, u32 buffer_size, void *value, int representation)
 {
     if(memory_is_little_endian())
     {
-        uhalf error;
         u8 *byte = (u8 *)&value;
         int i;
 
@@ -304,35 +236,22 @@ STRING_API uhalf string_copy_pointer(u32 *count, char *buffer, u32 buffer_size, 
         {
             if(byte[i] < 16)
             {
-                error = string_copy_character(count, buffer, buffer_size, '0');
-
-                if(error != STRING_ERROR_SUCCESS)
-                {
-                    return error;
-                }
+                string_copy_character(count, buffer, buffer_size, '0');
             }
             
-            error = string_copy_integer(count, buffer, buffer_size, 0, byte[i], representation);
-
-            if(error != STRING_ERROR_SUCCESS)
-            {
-                return error;
-            }
+            string_copy_integer(count, buffer, buffer_size, 0, byte[i], representation);
         }
     }
     else
     {
-        return STRING_ERROR_ENDIANESS_NOT_SUPPORTED;
+        return;
     }
-
-    return STRING_ERROR_SUCCESS;
 }
 
 /* Copies double into buffer. */
-STRING_API uhalf string_copy_double(u32 *count, char *buffer, u32 buffer_size, f64 value, int precision)
+STRING_API void string_copy_double(u32 *count, char *buffer, u32 buffer_size, f64 value, int precision)
 {
 #if 1
-    uhalf error;
     int exponent_unbiased;
     int exponent2;
     ieee754_double ieee754;
@@ -341,7 +260,7 @@ STRING_API uhalf string_copy_double(u32 *count, char *buffer, u32 buffer_size, f
     int integer_part[32];
     int fraction_part[32];
 
-    error = ieee754_from_double(value, &ieee754);
+    ieee754_from_double(value, &ieee754);
 
     /* Special cases. */
 
@@ -354,19 +273,19 @@ STRING_API uhalf string_copy_double(u32 *count, char *buffer, u32 buffer_size, f
         
         if(ieee754.sign)
         {
-            error = string_copy_character(count, buffer, buffer_size, '-');
+            string_copy_character(count, buffer, buffer_size, '-');
         }
 
-        error = string_length(&length, string);
+        string_length(&length, string);
 
-        error = string_copy(count, buffer, buffer_size, string, length);
+        string_copy(count, buffer, buffer_size, string, length);
 
         while(precision-- > 0)
         {
-            error = string_copy_character(count, buffer, buffer_size, '0');
+            string_copy_character(count, buffer, buffer_size, '0');
         }
 
-        return error;
+        return;
     }
     else if(ieee754.is_infinity)
     {
@@ -377,12 +296,13 @@ STRING_API uhalf string_copy_double(u32 *count, char *buffer, u32 buffer_size, f
         
         if(ieee754.sign)
         {
-            error = string_copy_character(count, buffer, buffer_size, '-');
+            string_copy_character(count, buffer, buffer_size, '-');
         }
 
-        error = string_length(&length, string);
+        string_length(&length, string);
 
-        return string_copy(count, buffer, buffer_size, string, length);
+        string_copy(count, buffer, buffer_size, string, length);
+        return;
     }
     else if(ieee754.is_quiet_not_a_number || ieee754.is_signaling_not_a_number)
     {
@@ -393,26 +313,25 @@ STRING_API uhalf string_copy_double(u32 *count, char *buffer, u32 buffer_size, f
 
         if(ieee754.sign)
         {
-            error = string_copy_character(count, buffer, buffer_size, '-');
+            string_copy_character(count, buffer, buffer_size, '-');
         }
         
         if(ieee754.is_quiet_not_a_number)
         {
-            error = string_copy_character(count, buffer, buffer_size, 'q');
+            string_copy_character(count, buffer, buffer_size, 'q');
         }
         else if(ieee754.is_signaling_not_a_number)
         {
-            error = string_copy_character(count, buffer, buffer_size, 's');
+            string_copy_character(count, buffer, buffer_size, 's');
         }
 
-        error = string_length(&length, string);
+        string_length(&length, string);
 
-        return string_copy(count, buffer, buffer_size, string, length);
+        string_copy(count, buffer, buffer_size, string, length);
+        return;
     }
 
-    error = big_integer_from_ieee754(0, 0, 0, 0, 0, 0);
-
-    
+    big_integer_from_ieee754(0, 0, 0, 0, 0, 0);
 
 #else
     uhalf error;
@@ -455,37 +374,26 @@ STRING_API uhalf string_copy_double(u32 *count, char *buffer, u32 buffer_size, f
         value -= integer_part;
     }
 #endif
-
-    return STRING_ERROR_SUCCESS;
 }
 
 /* Copies a string into buffer. */
-STRING_API uhalf string_copy(u32 *count, char *buffer, u32 buffer_size, char *string, u32 length)
+STRING_API void string_copy(u32 *count, char *buffer, u32 buffer_size, char *string, u32 length)
 {
     u32 i;
 
     for(i = 0; i < length; i++)
     {
-        uhalf error = string_copy_character(count, buffer, buffer_size, *string);
-
-        if(error != STRING_ERROR_SUCCESS)
-        {
-            return error;
-        }
-
+        string_copy_character(count, buffer, buffer_size, *string);
         string++;
     }
-    return STRING_ERROR_SUCCESS;
 }
 
 /* Formats a string. */
-STRING_API uhalf string_format(u32 *count, char *buffer, u32 buffer_size, char *format, va_list argument_list)
+STRING_API void string_format(u32 *count, char *buffer, u32 buffer_size, char *format, va_list argument_list)
 {
-    uhalf error = STRING_ERROR_SUCCESS;
-
     if(buffer_size < sizeof(char))
     {
-        return STRING_ERROR_BUFFER_INSUFFICIENT;
+        return;
     }
 
     *count = 0;
@@ -494,7 +402,7 @@ STRING_API uhalf string_format(u32 *count, char *buffer, u32 buffer_size, char *
     {
         if(*format != '%')
         {
-            error = string_copy_character(count, buffer, buffer_size, *format);
+            string_copy_character(count, buffer, buffer_size, *format);
             format++;
         }
         else
@@ -509,19 +417,14 @@ STRING_API uhalf string_format(u32 *count, char *buffer, u32 buffer_size, char *
             int precision;
             
             format++;
-            error = string_format_specifiers(&format, &left_align, &show_sign, &space_if_positive, &zero_pad, &alternate_form, &width, &dot_found, &precision);
-
-            if(error != STRING_ERROR_SUCCESS)
-            {
-                return error;
-            }
+            string_format_specifiers(&format, &left_align, &show_sign, &space_if_positive, &zero_pad, &alternate_form, &width, &dot_found, &precision);
 
             switch(*format)
             {
                 /* @TODO: %e, %E, %g, %G. */
                 case '%':
                 {
-                    error = string_copy_character(count, buffer, buffer_size, *format);
+                    string_copy_character(count, buffer, buffer_size, *format);
                     format++;
                 } break;
 
@@ -532,24 +435,14 @@ STRING_API uhalf string_format(u32 *count, char *buffer, u32 buffer_size, char *
 
                     if(!left_align)
                     {
-                        error = string_format_specifiers_width(count, buffer, buffer_size, &format, &width, 0, 1);
-
-                        if(error != STRING_ERROR_SUCCESS)
-                        {
-                            break;
-                        }
+                        string_format_specifiers_width(count, buffer, buffer_size, &format, &width, 0, 1);
                     }
 
-                    error = string_copy_character(count, buffer, buffer_size, value);
-
-                    if(error != STRING_ERROR_SUCCESS)
-                    {
-                        break;
-                    }
+                    string_copy_character(count, buffer, buffer_size, value);
                     
                     if(left_align)
                     {
-                        error = string_format_specifiers_width(count, buffer, buffer_size, &format, &width, left_align, 1);
+                        string_format_specifiers_width(count, buffer, buffer_size, &format, &width, left_align, 1);
                     }
 
                     format++;
@@ -561,7 +454,7 @@ STRING_API uhalf string_format(u32 *count, char *buffer, u32 buffer_size, char *
                     /* @TODO: -, +, ' ', 0 (ignore if precision is given), width, precision. */
                     s32 value;
                     value = va_arg(argument_list, s32);
-                    error = string_copy_integer(count, buffer, buffer_size, value < 0, value, 'd');
+                    string_copy_integer(count, buffer, buffer_size, value < 0, value, 'd');
                     format++;
                 } break;
 
@@ -569,7 +462,7 @@ STRING_API uhalf string_format(u32 *count, char *buffer, u32 buffer_size, char *
                 {
                     /* @TODO: -, +, ' ', 0 (ignored if - present), #, width, precision. */
                     f64 value = va_arg(argument_list, f64);
-                    error = string_copy_double(count, buffer, buffer_size, value, (precision > 0) ? (precision) : (17));
+                    string_copy_double(count, buffer, buffer_size, value, (precision > 0) ? (precision) : (17));
                     format++;
                 } break;
 
@@ -577,14 +470,14 @@ STRING_API uhalf string_format(u32 *count, char *buffer, u32 buffer_size, char *
                 {
                     /* @TODO: -, 0, #, width, precision. */
                     u32 value = va_arg(argument_list, u32);
-                    error = string_copy_integer(count, buffer, buffer_size, 0, value, *format);
+                    string_copy_integer(count, buffer, buffer_size, 0, value, *format);
                     format++;
                 } break;
 
                 case 'p':
                 {
                     void *value = va_arg(argument_list, void *);
-                    error = string_copy_pointer(count, buffer, buffer_size, value, 'x');
+                    string_copy_pointer(count, buffer, buffer_size, value, 'x');
                     format++;
                 } break;
 
@@ -593,14 +486,8 @@ STRING_API uhalf string_format(u32 *count, char *buffer, u32 buffer_size, char *
                     /* @TODO: width, precision, '-'. */
                     u32 length;
                     char *value = va_arg(argument_list, char *);
-                    error = string_length(&length, value);
-
-                    if(error != STRING_ERROR_SUCCESS)
-                    {
-                        break;
-                    }
-
-                    error = string_copy(count, buffer, buffer_size, value, length);
+                    string_length(&length, value);
+                    string_copy(count, buffer, buffer_size, value, length);
                     format++;
                 } break;
 
@@ -608,7 +495,7 @@ STRING_API uhalf string_format(u32 *count, char *buffer, u32 buffer_size, char *
                 {
                     /* @TODO: -, 0, width, precision. */
                     u32 value = va_arg(argument_list, u32);
-                    error = string_copy_integer(count, buffer, buffer_size, 0, value, 'd');
+                    string_copy_integer(count, buffer, buffer_size, 0, value, 'd');
                     format++;
                 } break;
 
@@ -617,24 +504,16 @@ STRING_API uhalf string_format(u32 *count, char *buffer, u32 buffer_size, char *
                 {
                     /* @TODO: -, 0, #. */
                     u32 value = va_arg(argument_list, u32);
-                    error = string_copy_integer(count, buffer, buffer_size, 0, value, *format);
+                    string_copy_integer(count, buffer, buffer_size, 0, value, *format);
                     format++;
                 } break;
 
                 default:
                 {
-                    error = STRING_ERROR_INVALID_FORMAT_SPECIFIER;
                 } break;
             }
-        }
-
-        if(error != STRING_ERROR_SUCCESS)
-        {
-            break;
         }
     }
 
     buffer[*count] = '\0';
-
-    return error;
 }

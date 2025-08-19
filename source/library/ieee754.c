@@ -2,7 +2,7 @@
 #include "ieee754.h"
 #include "memory.h"
 
-IEEE754_API uhalf ieee754_from_double(f64 value, ieee754_double *ieee754)
+IEEE754_API void ieee754_from_double(f64 value, ieee754_double *ieee754)
 {
     ieee754_double_union u;
 
@@ -26,8 +26,8 @@ IEEE754_API uhalf ieee754_from_double(f64 value, ieee754_double *ieee754)
     }
     else
     {
-        return IEEE754_ERROR_ENDIANESS_NOT_SUPPORTED;
+        return;
     }
 
-    return IEEE754_ERROR_SUCCESS;
+    return;
 }

@@ -39,6 +39,6 @@ typedef struct
     u64_emulated fraction;
 } ieee754_double;
 
-IEEE754_API uhalf ieee754_from_double(f64 value, ieee754_double *ieee754);
+IEEE754_API void ieee754_from_double(f64 value, ieee754_double *ieee754);
 
 #endif

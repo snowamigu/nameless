@@ -3,7 +3,7 @@
 
 #include "memory.h"
 
-INTERNAL uhalf u32_multiply(u32 multiplier, u32 multiplicand, u64_emulated *product)
+INTERNAL void u32_multiply(u32 multiplier, u32 multiplicand, u64_emulated *product)
 {
     /*
         ((a_high << 16) + a_low) * ((b_high << 16) + b_low)
@@ -17,7 +17,6 @@ INTERNAL uhalf u32_multiply(u32 multiplier, u32 multiplicand, u64_emulated *prod
         result = {r0, r1};
     */
 
-    uhalf error;
     int i;
     u32 a_low;
     u32 a_high;
@@ -38,7 +37,7 @@ INTERNAL uhalf u32_multiply(u32 multiplier, u32 multiplicand, u64_emulated *prod
 
     low_carry = 0;
 
-    error = memory_zeroed(product, sizeof(u64_emulated));
+    memory_zeroed(product, sizeof(u64_emulated));
     
     a_low = multiplier & MAX_U16;
     a_high = (multiplier >> 16) & MAX_U16;
@@ -67,22 +66,22 @@ INTERNAL uhalf u32_multiply(u32 multiplier, u32 multiplicand, u64_emulated *prod
     old_high = product->high;
     product->high += high_carry;
     low_carry = (old_high > (MAX_U32 - high_carry)) ? (1) : (0);
-
-    return ERROR_SUCCESS;
 }
 
-BIG_INTEGER_API uhalf big_integer_zeroed(big_integer *value)
+BIG_INTEGER_API void big_integer_zeroed(big_integer *value)
 {
     value->sign = value->length = 0;
     
-    return memory_zeroed(value->limb, sizeof(value->limb));
+    memory_zeroed(value->limb, sizeof(value->limb));
+
+    return;
 }
 
-BIG_INTEGER_API uhalf big_integer_copy(big_integer *source, big_integer *destination)
+BIG_INTEGER_API void big_integer_copy(big_integer *source, big_integer *destination)
 {
-    uhalf error;
     int i;
-    error = big_integer_zeroed(destination);
+
+    big_integer_zeroed(destination);
 
     if(memory_is_little_endian())
     {
@@ -95,58 +94,47 @@ BIG_INTEGER_API uhalf big_integer_copy(big_integer *source, big_integer *destina
     }
     else
     {
-        return BIG_INTEGER_ERROR_ENDIANESS_NOT_SUPPORTED;
+        return;
     }
-
-    return BIG_INTEGER_ERROR_SUCCESS;
 }
 
-BIG_INTEGER_API uhalf big_integer_from_u32(u32 value1, big_integer *value2)
+BIG_INTEGER_API void big_integer_from_u32(u32 value1, big_integer *value2)
 {
-    uhalf error;
-
     if(memory_is_little_endian())
     {
-        error = big_integer_zeroed(value2);
+        big_integer_zeroed(value2);
         
         value2->limb[value2->length++] = value1;
     }
     else
     {
-        return BIG_INTEGER_ERROR_ENDIANESS_NOT_SUPPORTED;
+        return;
     }
-
-    return BIG_INTEGER_ERROR_SUCCESS;
 }
 
-BIG_INTEGER_API uhalf big_integer_from_u64_emulated(u64_emulated *value1, big_integer *value2)
+BIG_INTEGER_API void big_integer_from_u64_emulated(u64_emulated *value1, big_integer *value2)
 {
-    uhalf error;
-
     if(memory_is_little_endian())
     {
-        error = big_integer_zeroed(value2);
+        big_integer_zeroed(value2);
         
         value2->limb[value2->length++] = value1->low;
         value2->limb[value2->length++] = value1->high;
     }
     else
     {
-        return BIG_INTEGER_ERROR_ENDIANESS_NOT_SUPPORTED;
+        return;
     }
-
-    return BIG_INTEGER_ERROR_SUCCESS;
 }
 
-BIG_INTEGER_API uhalf big_integer_add(big_integer *value1, big_integer *value2, big_integer *sum)
+BIG_INTEGER_API void big_integer_add(big_integer *value1, big_integer *value2, big_integer *sum)
 {
-    uhalf error;
     int i;
     int max_length;
     big_integer r;
     u32 carry;
 
-    max_length = BIG_INTEGER_MAX(value1->length, value2->length);
+    max_length = MAX(value1->length, value2->length);
     carry = 0;
     
     if(memory_is_little_endian)
@@ -181,31 +169,29 @@ BIG_INTEGER_API uhalf big_integer_add(big_integer *value1, big_integer *value2, 
             }
             else
             {
-                return BIG_INTEGER_ERROR_BUFFER_OVERRUN;
+                return;
             }
         }
 
-        error = big_integer_copy(&r, sum);
+        big_integer_copy(&r, sum);
     }
     else
     {
-        return BIG_INTEGER_ERROR_ENDIANESS_NOT_SUPPORTED;
+        return;
     }
-
-    return BIG_INTEGER_ERROR_SUCCESS;
 }
 
-BIG_INTEGER_API uhalf big_integer_subtract(big_integer *value1, big_integer *value2, big_integer *difference)
+BIG_INTEGER_API void big_integer_subtract(big_integer *value1, big_integer *value2, big_integer *difference)
 {
-    uhalf error;
     int i;
     int max_length;
     big_integer r;
     u32 borrow;
 
-    max_length = BIG_INTEGER_MAX(value1->length, value2->length);
+    max_length = MAX(value1->length, value2->length);
     borrow = 0;
-    if(memory_is_little_endian)
+
+    if(memory_is_little_endian())
     {
         for(i = 0; i < max_length; i++)
         {
@@ -225,19 +211,16 @@ BIG_INTEGER_API uhalf big_integer_subtract(big_integer *value1, big_integer *val
 
         r.length = value1->length - value2->length + 1;
 
-        error = big_integer_copy(&r, difference);
+        big_integer_copy(&r, difference);
     }
     else
     {
-        return BIG_INTEGER_ERROR_ENDIANESS_NOT_SUPPORTED;
+        return;
     }
-
-    return BIG_INTEGER_ERROR_SUCCESS;
 }
 
-BIG_INTEGER_API uhalf big_integer_shift_left(big_integer *value1, u32 value2, big_integer *result)
+BIG_INTEGER_API void big_integer_shift_left(big_integer *value1, u32 value2, big_integer *result)
 {
-    uhalf error;
     int word_size;
     int limbs;
     int bits;
@@ -250,7 +233,7 @@ BIG_INTEGER_API uhalf big_integer_shift_left(big_integer *value1, u32 value2, bi
     bits = value2 % word_size;
     carry = 0;
     
-    error = big_integer_copy(value1, &r);
+    big_integer_copy(value1, &r);
 
     for(i = r.length - 1; i >= 0; i--)
     {
@@ -278,26 +261,20 @@ BIG_INTEGER_API uhalf big_integer_shift_left(big_integer *value1, u32 value2, bi
     {
         r.limb[r.length + limbs] = carry;
     }
-    
-    return BIG_INTEGER_ERROR_SUCCESS;
 }
 
-BIG_INTEGER_API uhalf big_integer_shift_right(big_integer *value1, u32 times, big_integer *result)
+BIG_INTEGER_API void big_integer_shift_right(big_integer *value1, u32 times, big_integer *result)
 {
-    uhalf error;
     int word_size;
     int limbs;
     int bits;
     int i;
     big_integer r;
     u32 carry;
-
-    return BIG_INTEGER_ERROR_SUCCESS;
 }
 
-BIG_INTEGER_API uhalf big_integer_multiply(big_integer *multiplier, big_integer *multiplicand, big_integer *product)
+BIG_INTEGER_API void big_integer_multiply(big_integer *multiplier, big_integer *multiplicand, big_integer *product)
 {
-    uhalf error;
     u32 i;
     u32 max_length;
     big_integer p;
@@ -316,28 +293,25 @@ BIG_INTEGER_API uhalf big_integer_multiply(big_integer *multiplier, big_integer 
             m1 = multiplier->limb[i];
             m2 = multiplicand->limb[i];
             
-            error = u32_multiply(m1, m2, &prod);
+            u32_multiply(m1, m2, &prod);
 
             p.limb[i] = prod.low;
             p.limb[i + 1] = prod.high;
         }
 
-        error = big_integer_copy(&p, product);
+        big_integer_copy(&p, product);
     }
     else
     {
-        return BIG_INTEGER_ERROR_ENDIANESS_NOT_SUPPORTED;
+        return;
     }
-
-    return BIG_INTEGER_ERROR_SUCCESS;
 }
 
-BIG_INTEGER_API uhalf big_integer_divide(big_integer *value1, big_integer *value2, big_integer *result)
+BIG_INTEGER_API void big_integer_divide(big_integer *value1, big_integer *value2, big_integer *result)
 {
-    return BIG_INTEGER_ERROR_SUCCESS;
 }
 
-BIG_INTEGER_API uhalf big_integer_from_ieee754(int exponent, int bias, int k, u64_emulated *fraction, big_integer *numerator, big_integer *denominator)
+BIG_INTEGER_API void big_integer_from_ieee754(int exponent, int bias, int k, u64_emulated *fraction, big_integer *numerator, big_integer *denominator)
 {
     /*
         Normal: (-1)^s * 1.F * 2^(E - bias)
@@ -365,16 +339,15 @@ BIG_INTEGER_API uhalf big_integer_from_ieee754(int exponent, int bias, int k, u6
         (-1)^s * F/2^(1074)
     */
 
-    uhalf error;
     bool is_subnormal;
 
     is_subnormal = k == -1022;
 
     if(is_subnormal)
     {
-        error = big_integer_from_u64_emulated(fraction, numerator);
-        error = big_integer_from_u32(1, denominator);
-        error = big_integer_shift_left(denominator, 1074, denominator);
+        big_integer_from_u64_emulated(fraction, numerator);
+        big_integer_from_u32(1, denominator);
+        big_integer_shift_left(denominator, 1074, denominator);
     }
     else
     {
@@ -385,22 +358,20 @@ BIG_INTEGER_API uhalf big_integer_from_ieee754(int exponent, int bias, int k, u6
 
         ASSERT(e >= 0);
 
-        error = big_integer_from_u64_emulated(fraction, numerator);
-        error = big_integer_from_u32(1, &temporary);
-        error = big_integer_shift_left(&temporary, 52, &temporary);
-        error = big_integer_add(numerator, &temporary, numerator);
+       big_integer_from_u64_emulated(fraction, numerator);
+       big_integer_from_u32(1, &temporary);
+       big_integer_shift_left(&temporary, 52, &temporary);
+       big_integer_add(numerator, &temporary, numerator);
 
-        error = big_integer_from_u32(1, &temporary);
-        error = big_integer_shift_left(&temporary, e, &temporary);
-        error = big_integer_multiply(numerator, &temporary, numerator);
+       big_integer_from_u32(1, &temporary);
+       big_integer_shift_left(&temporary, e, &temporary);
+       big_integer_multiply(numerator, &temporary, numerator);
 
         e = 52 - k;
 
         ASSERT(e >= 0);
 
-        error = big_integer_from_u32(1, denominator);
-        error = big_integer_shift_left(denominator, e, denominator);
+        big_integer_from_u32(1, denominator);
+        big_integer_shift_left(denominator, e, denominator);
     }
-
-    return BIG_INTEGER_ERROR_SUCCESS;
 }

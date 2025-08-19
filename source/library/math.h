@@ -14,10 +14,4 @@
     #endif
 #endif
 
-typedef enum
-{
-    MATH_ERROR_SUCCESS,
-    MATH_ERROR,
-} math_enumeration;
-
 #endif

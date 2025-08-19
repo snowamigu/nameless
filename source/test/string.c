@@ -85,23 +85,17 @@ INTERNAL void print(char *format, ...)
     va_list argument_list;
     char buffer[1024];
     u32 buffer_length;
-    uhalf string_error;
-    uhalf console_error;
 
     va_start(argument_list, format);
-    ASSERT((string_error = string_format(&buffer_length, buffer, sizeof(buffer), format, argument_list)) == STRING_ERROR_SUCCESS);
-    ASSERT((console_error = console_write(CONSOLE_HANDLE_OUTPUT, buffer, buffer_length)) == CONSOLE_ERROR_SUCCESS);
+    string_format(&buffer_length, buffer, sizeof(buffer), format, argument_list);
+    console_write(CONSOLE_HANDLE_OUTPUT, buffer, buffer_length);
     va_end(argument_list);
 }
 
 int main(int argument_count, char **argument_list)
 {
-    uhalf console_error;
-    uhalf string_error;
     char buffer[512];
     u32 length;
-
-    ASSERT(((string_error = string_length(&length, "Hello\n")) == STRING_ERROR_SUCCESS) && (length == 6));
     
     print("%f %f %f\n", 0.0, double_biggest_subnormal(), double_biggest_subnormal());
 

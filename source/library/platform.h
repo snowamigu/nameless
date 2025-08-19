@@ -33,21 +33,12 @@ typedef unsigned int u16;
 typedef long s32;
 typedef unsigned long u32;
 typedef u32 bool;
-typedef u32 uhalf; /* at least 32 bits */
+//typedef u32 uhalf; /* at least 32 bits */
 typedef float f32;
 typedef double f64;
 typedef struct { u32 low; u32 high; } s64_emulated;
 typedef struct { u32 low; u32 high; } u64_emulated;
 typedef struct { u64_emulated low; u64_emulated high; } s128_emulated;
 typedef struct { u64_emulated low; u64_emulated high; } u128_emulated;
-
-typedef enum
-{
-    ERROR_SUCCESS,
-    ERROR,
-    ERROR_INVALID_PARAMETER,
-    ERROR_ENDIANESS_NOT_SUPPORTED,
-    ERROR_BUFFER_OVERRUN
-} platform_error;
 
 #endif

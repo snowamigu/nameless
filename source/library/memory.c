@@ -9,14 +9,14 @@ MEMORY_API bool memory_is_little_endian()
     return *p == 1;
 }
 
-MEMORY_API uhalf memory_zeroed(void *value, u32 size)
+MEMORY_API void memory_zeroed(void *value, u32 size)
 {
     u8 *v = value;
     u32 i;
 
     if(!size)
     {
-        return MEMORY_ERROR_INVALID_PARAMETER;
+        return;
     }
 
     for(i = 0; i < size; i++)
@@ -24,7 +24,7 @@ MEMORY_API uhalf memory_zeroed(void *value, u32 size)
         *v++ = 0;
     }
 
-    return MEMORY_ERROR_SUCCESS;
+    return;
 }
 
 MEMORY_API int memory_count_trailing_zeros_u32(u32 value)
