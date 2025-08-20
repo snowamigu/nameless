@@ -4,7 +4,7 @@
 
 IEEE754_API void ieee754_from_double(f64 value, ieee754_double *ieee754)
 {
-    ieee754_double_union u;
+    ieee754_double_union u = {0};
 
     if(memory_is_little_endian())
     {

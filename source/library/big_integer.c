@@ -3,6 +3,18 @@
 
 #include "memory.h"
 
+BIG_INTEGER_API bool big_integer_is_zero(big_integer *value)
+{
+    if(memory_is_little_endian())
+    {
+        return (value->length == 1) && !value->limb[0];
+    }
+    else
+    {
+        return 0;
+    }
+}
+
 INTERNAL void u32_multiply(u32 multiplier, u32 multiplicand, u64_emulated *product)
 {
     /*
@@ -77,6 +89,19 @@ BIG_INTEGER_API void big_integer_zeroed(big_integer *value)
     return;
 }
 
+INTERNAL void big_integer_zero(big_integer *value)
+{
+    if(memory_is_little_endian())
+    {
+        big_integer_zeroed(value);
+        value->limb[value->length++] = 0;
+    }
+    else
+    {
+        return;
+    }
+}
+
 BIG_INTEGER_API void big_integer_copy(big_integer *source, big_integer *destination)
 {
     int i;
@@ -136,6 +161,8 @@ BIG_INTEGER_API void big_integer_add(big_integer *value1, big_integer *value2, b
 
     max_length = MAX(value1->length, value2->length);
     carry = 0;
+
+    big_integer_zero(&r);
     
     if(memory_is_little_endian)
     {
@@ -237,7 +264,7 @@ BIG_INTEGER_API void big_integer_shift_left(big_integer *value1, u32 value2, big
 
     for(i = r.length - 1; i >= 0; i--)
     {
-        r.limb[i + word_size] = r.limb[i];
+        r.limb[i + limbs] = r.limb[i];
     }
 
     for(i = 0; i < limbs; i++)
@@ -261,6 +288,8 @@ BIG_INTEGER_API void big_integer_shift_left(big_integer *value1, u32 value2, big
     {
         r.limb[r.length + limbs] = carry;
     }
+
+    big_integer_copy(&r, result);
 }
 
 BIG_INTEGER_API void big_integer_shift_right(big_integer *value1, u32 times, big_integer *result)
@@ -271,6 +300,8 @@ BIG_INTEGER_API void big_integer_shift_right(big_integer *value1, u32 times, big
     int i;
     big_integer r;
     u32 carry;
+
+    ASSERT(0);
 }
 
 BIG_INTEGER_API void big_integer_multiply(big_integer *multiplier, big_integer *multiplicand, big_integer *product)
@@ -278,25 +309,47 @@ BIG_INTEGER_API void big_integer_multiply(big_integer *multiplier, big_integer *
     u32 i;
     u32 max_length;
     big_integer p;
-    u32 limb;
+    u32 carry;
+    u32 carry2;
 
     if(memory_is_little_endian())
     {
         max_length = multiplier->length + multiplicand->length;
-
+        carry = 0;
+        
         for(i = 0; i < max_length; i += 2)
         {
+            /*
+                ((a_high << 8) + a_low) * ((b_high << 8) + b_low)
+                ((a_high * b_high) << 16) + ((a_high * b_low) << 8) + ((a_low * b_high) << 8) + (a_low * b_low)
+                p3 + p2 + p1 + p0
+                low = p0 + (p1 & MAX_U8) + (p2 & MAX_U8)
+                high = p3 + ((p2 >> 8) & MAX_U8) + ((p1 >> 8) & MAX_U8)
+            */
             u32 m1;
             u32 m2;
-            u64_emulated prod;
+            u64_emulated p0 = {0};
+            u64_emulated p1 = {0};
+            u64_emulated p2 = {0};
+            u64_emulated p3 = {0};
+            u64_emulated prod = {0};
 
             m1 = multiplier->limb[i];
             m2 = multiplicand->limb[i];
-            
-            u32_multiply(m1, m2, &prod);
 
-            p.limb[i] = prod.low;
-            p.limb[i + 1] = prod.high;
+            u32_multiply(m1 & MAX_U16, m2 & MAX_U16, &p0);
+            u32_multiply(m1 & MAX_U16, (m2 >> 16) & MAX_U16, &p1);
+
+            u32_multiply((m1 >> 16) & MAX_U16, m2 & MAX_U16, &p2);
+            u32_multiply((m1 >> 16) & MAX_U16, (m2 >> 16) & MAX_U16, &p3);
+
+            prod.low = p0.low + (p1.low & MAX_U8) + (p2.low & MAX_U8);
+            prod.high = p0.low + ((p2.low >> 8) & MAX_U8) + ((p1.low >> 8) & MAX_U8);
+
+            p.limb[i] = prod.low + carry;
+            carry2 = (prod.low > (MAX_U32 - carry)) ? (1) : (0);
+            carry = prod.high;
+            
         }
 
         big_integer_copy(&p, product);
@@ -307,11 +360,106 @@ BIG_INTEGER_API void big_integer_multiply(big_integer *multiplier, big_integer *
     }
 }
 
-BIG_INTEGER_API void big_integer_divide(big_integer *value1, big_integer *value2, big_integer *result)
+BIG_INTEGER_API int big_integer_compare(big_integer *value1, big_integer *value2)
 {
+    int i;
+
+    if(value1->length != value2->length)
+    {
+        return (value1->length > value2->length) ? (1) : (-1);
+    }
+
+    for(i = 0; i < value1->length; i++)
+    {
+        if(value1->limb[i] != value2->limb[i])
+        {
+            return (value1->limb[i] > value2->limb[i]) ? (1) : (-1);
+        }
+    }
+
+    return 0;
 }
 
-BIG_INTEGER_API void big_integer_from_ieee754(int exponent, int bias, int k, u64_emulated *fraction, big_integer *numerator, big_integer *denominator)
+BIG_INTEGER_API void big_integer_greatest_common_divisor(big_integer *value1, big_integer *value2, big_integer *result)
+{
+    while(big_integer_compare(value1, value2) != 0)
+    {
+        if(big_integer_compare(value1, value2) > 0)
+        {
+            big_integer_subtract(value1, value2, value1);
+        }
+        else
+        {
+            big_integer_subtract(value2, value1, value2);
+        }
+    }
+}
+
+BIG_INTEGER_API u32 big_integer_divide_by_10(big_integer *dividend)
+{
+    u32 result;
+    int i;
+
+    result = 0;
+
+    for(i = dividend->length - 1; i >= 0; i--)
+    {
+        u64_emulated current = {0};
+
+        current.low = dividend->limb[i];
+        current.high = result;
+        
+        dividend->limb[i] = current.low / 10;
+        result = current.low % 10;
+    }
+
+    return result;
+}
+
+BIG_INTEGER_API void big_integer_divide(big_integer *dividend, big_integer *divisor, big_integer *quotient, big_integer *remainder)
+{
+    big_integer n;
+    big_integer d;
+    big_integer q;
+    big_integer r;
+    int i;
+    int shift;
+    int word_size;
+
+    word_size = sizeof(dividend->limb[0]) * 8;
+
+    if(big_integer_compare(dividend, divisor) < 0)
+    {
+        big_integer_zero(quotient);
+        big_integer_copy(dividend, remainder);
+        return;
+    }
+
+    big_integer_copy(dividend, &n);
+    big_integer_copy(divisor, &d);
+    big_integer_zero(&q);
+    big_integer_zero(&r);
+
+    shift = (n.length > d.length) ? (n.length - d.length) : (0);
+
+    if(shift > 0)
+    {
+        big_integer_shift_left(&d, shift * word_size, &d);
+    }
+
+    while(big_integer_compare(&r, &d) >= 0)
+    {
+        big_integer one;
+        big_integer_subtract(&r, &d, &r);
+        big_integer_from_u32(1, &one);
+        big_integer_add(&q, &one, &q);
+    }
+
+    big_integer_copy(&q, quotient);
+    big_integer_copy(&r, remainder);
+}
+
+BIG_INTEGER_API void big_integer_from_ieee754(bool sign, int exponent, int bias, int k, u64_emulated *fraction, big_integer *numerator, big_integer *denominator)
 {
     /*
         Normal: (-1)^s * 1.F * 2^(E - bias)
@@ -341,7 +489,7 @@ BIG_INTEGER_API void big_integer_from_ieee754(int exponent, int bias, int k, u64
 
     bool is_subnormal;
 
-    is_subnormal = k == -1022;
+    is_subnormal = !exponent; /* @TODO: Is it right? */
 
     if(is_subnormal)
     {
@@ -354,24 +502,45 @@ BIG_INTEGER_API void big_integer_from_ieee754(int exponent, int bias, int k, u64
         big_integer temporary;
         int e;
 
-        e = exponent - bias - k;
+        e = exponent - bias;
 
-        ASSERT(e >= 0);
+        if(e >= 0)
+        {
+            big_integer_from_u32(1, &temporary);
+            big_integer_shift_left(&temporary, 52, &temporary);
 
-       big_integer_from_u64_emulated(fraction, numerator);
-       big_integer_from_u32(1, &temporary);
-       big_integer_shift_left(&temporary, 52, &temporary);
-       big_integer_add(numerator, &temporary, numerator);
+            big_integer_from_u64_emulated(fraction, numerator);
+            big_integer_add(&temporary, numerator, numerator);
 
-       big_integer_from_u32(1, &temporary);
-       big_integer_shift_left(&temporary, e, &temporary);
-       big_integer_multiply(numerator, &temporary, numerator);
+            big_integer_from_u32(1, &temporary);
+            big_integer_shift_left(&temporary, e, &temporary);
+            big_integer_multiply(numerator, &temporary, numerator);
 
-        e = 52 - k;
+            big_integer_from_u32(1, &temporary);
+            big_integer_shift_left(&temporary, e, &temporary);
 
-        ASSERT(e >= 0);
+            big_integer_from_u64_emulated(fraction, denominator);
 
-        big_integer_from_u32(1, denominator);
-        big_integer_shift_left(denominator, e, denominator);
+            big_integer_add(&temporary, denominator, denominator);
+        }
+        else
+        {
+            e = ABSOLUTE(e);
+
+            big_integer_from_u64_emulated(fraction, numerator);
+
+            big_integer_from_u32(1, &temporary);
+            big_integer_shift_left(&temporary, 52, &temporary);
+
+            big_integer_add(numerator, &temporary, numerator);
+
+            big_integer_from_u32(1, &temporary);
+            big_integer_shift_left(&temporary, 52, &temporary);
+
+            big_integer_from_u32(1, denominator);
+            big_integer_shift_left(denominator, e, denominator);
+
+            big_integer_multiply(&temporary, denominator, denominator);
+        }
     }
 }

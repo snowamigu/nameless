@@ -97,7 +97,7 @@ int main(int argument_count, char **argument_list)
     char buffer[512];
     u32 length;
     
-    print("%f %f %f\n", 0.0, double_biggest_subnormal(), double_biggest_subnormal());
+    print("%f %f %f\n", 0.1, 0.1, 0.1);
 
     return 0;
 

@@ -248,6 +248,53 @@ STRING_API void string_copy_pointer(u32 *count, char *buffer, u32 buffer_size, v
     }
 }
 
+/**/
+INTERNAL void string_big_integers_to_integer_fraction_parts(int precision, big_integer *numerator, big_integer *denominator, int *integer_part, int integer_part_count, int *fraction_part, int fraction_part_count)
+{
+    big_integer quotient;
+    big_integer remainder;
+    int i;
+    int j;
+    int temporary[309 + 1];
+
+    memory_zeroed(integer_part, sizeof(int) * integer_part_count);
+    memory_zeroed(fraction_part, sizeof(int) * fraction_part_count);
+
+    big_integer_divide(numerator, denominator, &quotient, &remainder);
+    
+    j = 0;
+
+    for(i = quotient.length - 1; i >= 0; i--)
+    {
+        temporary[j++] = quotient.limb[i];
+    }
+
+    i = 0;
+
+    while(--j >= 0)
+    {
+        integer_part[i] = temporary[j];
+    }
+
+    j = 0;
+
+    for(i = 0; i < 17; i++)
+    {
+        u32 digit;
+
+        digit = big_integer_divide_by_10(&remainder);
+
+        temporary[j++] = digit;
+    }
+
+    i = 0;
+
+    while(--j >= 0)
+    {
+        fraction_part[i] = temporary[j];
+    }
+}
+
 /* Copies double into buffer. */
 STRING_API void string_copy_double(u32 *count, char *buffer, u32 buffer_size, f64 value, int precision)
 {
@@ -257,8 +304,9 @@ STRING_API void string_copy_double(u32 *count, char *buffer, u32 buffer_size, f6
     ieee754_double ieee754;
     big_integer numerator;
     big_integer denominator;
-    int integer_part[32];
-    int fraction_part[32];
+    int integer_part[309 + 1];
+    int fraction_part[17 + 1];
+    int k;
 
     ieee754_from_double(value, &ieee754);
 
@@ -331,8 +379,13 @@ STRING_API void string_copy_double(u32 *count, char *buffer, u32 buffer_size, f6
         return;
     }
 
-    big_integer_from_ieee754(0, 0, 0, 0, 0, 0);
+    k = (ieee754.is_subnormal) ? (-1074) : (((ieee754.exponent - 1023) < 52) ? (ieee754.exponent - 1023) : (52));
 
+    big_integer_from_ieee754(ieee754.sign, ieee754.exponent, 1023, k, &ieee754.fraction, &numerator, &denominator);
+
+    string_big_integers_to_integer_fraction_parts(precision, &numerator, &denominator, integer_part, ARRAY_COUNT(integer_part), fraction_part, ARRAY_COUNT(fraction_part));
+
+    k = 0;
 #else
     uhalf error;
     s32 integer_part = (s32)value;
