@@ -14,6 +14,7 @@ pushd "%output_directory%"
 cls
 if %errorlevel% == 0 (cl %msvc_compiler_flags% /LD "%source_directory%\library\hardware.c" /link %msvc_linker_flags%)
 if %errorlevel% == 0 (cl %msvc_compiler_flags% /LD "%source_directory%\library\string.c" /link %msvc_linker_flags%)
+if %errorlevel% == 0 (cl %msvc_compiler_flags% /LD "%source_directory%\library\physics.c" /link %msvc_linker_flags%)
 if %errorlevel% == 0 (cl %msvc_compiler_flags% /Fo"hardware_.obj" "%source_directory%\test\hardware.c" /link %msvc_linker_flags% hardware.lib)
 if %errorlevel% == 0 (cl %msvc_compiler_flags% /Fo"string_.obj" "%source_directory%\test\string.c" /link %msvc_linker_flags% hardware.lib string.lib)
 if %errorlevel% == 0 (cl %msvc_compiler_flags% "%source_directory%\test\main.c" /link %msvc_linker_flags% hardware.lib string.lib)
